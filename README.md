@@ -31,6 +31,9 @@ npm run server
 - `GET /api/projects`
 - `POST /api/projects`
 - `POST /api/projects/:projectId/members` (только `owner`)
+- `GET /api/projects/:projectId/members`
+- `PATCH /api/projects/:projectId/members/:userId` (только `owner`)
+- `DELETE /api/projects/:projectId/members/:userId` (только `owner`)
 - `GET /api/projects/:projectId/session`
 - `PUT /api/projects/:projectId/session` (`owner`/`editor`)
 

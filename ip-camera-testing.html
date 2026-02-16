@@ -195,6 +195,56 @@
       min-height: 20px;
     }
 
+    .members-list {
+      border: 1px solid rgba(71, 85, 105, 0.5);
+      border-radius: var(--radius-sm);
+      background: rgba(2, 6, 23, 0.35);
+      padding: 8px;
+      display: grid;
+      gap: 6px;
+      max-height: 190px;
+      overflow: auto;
+    }
+
+    .member-row {
+      display: grid;
+      grid-template-columns: 1fr 120px auto;
+      gap: 8px;
+      align-items: center;
+      border: 1px solid rgba(71, 85, 105, 0.45);
+      border-radius: 8px;
+      background: rgba(15, 23, 42, 0.55);
+      padding: 6px 8px;
+    }
+
+    .member-meta {
+      min-width: 0;
+      display: grid;
+      gap: 2px;
+    }
+
+    .member-name {
+      font-size: 0.86rem;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .member-email {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .member-empty {
+      color: var(--text-secondary);
+      font-size: 0.83rem;
+      padding: 2px 0;
+    }
+
     .grid-2 {
       padding: 18px;
       display: grid;
@@ -648,7 +698,8 @@
       .screens { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .test-top { flex-direction: column; }
       .project-row,
-      .project-row-3 { grid-template-columns: 1fr; }
+      .project-row-3,
+      .member-row { grid-template-columns: 1fr; }
     }
 
     @keyframes fadeIn {
@@ -747,6 +798,9 @@
               <option value="viewer">Viewer</option>
             </select>
             <button class="btn" id="inviteBtn" type="button" title="Выдать доступ к проекту">Выдать доступ</button>
+          </div>
+          <div class="members-list" id="membersList">
+            <div class="member-empty">Список участников будет доступен после выбора проекта.</div>
           </div>
           <div class="project-role" id="projectRoleLabel">Проект не выбран.</div>
         </div>
@@ -976,6 +1030,7 @@
         user: null
       },
       projects: [],
+      projectMembers: [],
       activeProjectId: '',
       activeProjectRole: '',
       saveDebounceTimer: null
@@ -1002,6 +1057,7 @@
       inviteEmail: document.getElementById('inviteEmail'),
       inviteRole: document.getElementById('inviteRole'),
       inviteBtn: document.getElementById('inviteBtn'),
+      membersList: document.getElementById('membersList'),
       projectRoleLabel: document.getElementById('projectRoleLabel'),
       projectName: document.getElementById('projectName'),
       cameraModel: document.getElementById('cameraModel'),
@@ -1040,7 +1096,7 @@
         state.auth = auth;
         const ok = await restoreSession();
         if (ok) {
-          onAuthenticated();
+          await onAuthenticated();
           return;
         }
       }
@@ -1067,6 +1123,22 @@
       });
       els.projectSelect.addEventListener('change', async (e) => {
         await selectProject(e.target.value, true);
+      });
+      els.membersList.addEventListener('change', async (e) => {
+        const target = e.target;
+        if (!(target instanceof HTMLSelectElement)) return;
+        const userId = target.getAttribute('data-member-role');
+        if (!userId) return;
+        await updateMemberRole(userId, target.value);
+      });
+      els.membersList.addEventListener('click', async (e) => {
+        const target = e.target;
+        if (!(target instanceof HTMLElement)) return;
+        const button = target.closest('[data-remove-member]');
+        if (!button) return;
+        const userId = button.getAttribute('data-remove-member');
+        if (!userId) return;
+        await removeMember(userId);
       });
 
       [
@@ -1296,6 +1368,8 @@
         els.projectSelect.innerHTML = '<option value="">Нет проектов</option>';
         els.projectSelect.value = '';
         els.projectRoleLabel.textContent = 'Проект не выбран.';
+        state.projectMembers = [];
+        renderProjectMembers();
         return;
       }
 
@@ -1307,6 +1381,61 @@
       if (active) {
         els.projectRoleLabel.textContent = `Роль: ${active.role.toUpperCase()} | Обновлён: ${new Date(active.updatedAt).toLocaleString('ru-RU')}`;
       }
+    }
+
+    function renderProjectMembers() {
+      if (!state.activeProjectId) {
+        els.membersList.innerHTML = '<div class="member-empty">Список участников будет доступен после выбора проекта.</div>';
+        return;
+      }
+      if (!state.projectMembers.length) {
+        els.membersList.innerHTML = '<div class="member-empty">Участники не найдены.</div>';
+        return;
+      }
+
+      const ownerId = getActiveProject()?.ownerId || '';
+      const canManage = state.activeProjectRole === 'owner';
+      els.membersList.innerHTML = state.projectMembers.map((member) => {
+        const isOwner = member.userId === ownerId;
+        const displayName = member.name || 'Без имени';
+        const displayRole = member.role.toUpperCase();
+        if (!canManage || isOwner) {
+          return `
+            <div class="member-row">
+              <div class="member-meta">
+                <div class="member-name">${escapeHtml(displayName)} (${displayRole})</div>
+                <div class="member-email">${escapeHtml(member.email || '-')}</div>
+              </div>
+              <div></div>
+              <div></div>
+            </div>
+          `;
+        }
+        return `
+          <div class="member-row">
+            <div class="member-meta">
+              <div class="member-name">${escapeHtml(displayName)}</div>
+              <div class="member-email">${escapeHtml(member.email || '-')}</div>
+            </div>
+            <select data-member-role="${member.userId}" title="Изменить роль">
+              <option value="editor" ${member.role === 'editor' ? 'selected' : ''}>Editor</option>
+              <option value="viewer" ${member.role === 'viewer' ? 'selected' : ''}>Viewer</option>
+            </select>
+            <button class="btn" type="button" data-remove-member="${member.userId}" title="Удалить участника">Удалить</button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function getActiveProject() {
+      return state.projects.find((p) => p.id === state.activeProjectId) || null;
+    }
+
+    function updateActiveProjectMeta(updatedAt) {
+      const active = getActiveProject();
+      if (!active || !updatedAt) return;
+      active.updatedAt = updatedAt;
+      renderProjectOptions();
     }
 
     async function createProject() {
@@ -1345,12 +1474,13 @@
         return;
       }
       try {
-        await apiFetch(`/projects/${state.activeProjectId}/members`, {
+        const payload = await apiFetch(`/projects/${state.activeProjectId}/members`, {
           method: 'POST',
           body: JSON.stringify({ email, role })
         });
         els.inviteEmail.value = '';
-        await loadProjects(false);
+        updateActiveProjectMeta(payload.project?.updatedAt || '');
+        await loadProjectMembers(false);
         showToast(`Доступ выдан: ${role}.`);
       } catch (error) {
         showToast(error.message || 'Не удалось выдать доступ.');
@@ -1365,7 +1495,61 @@
       state.activeProjectRole = selected.role;
       renderProjectOptions();
       await loadProjectSession(showFeedback);
+      await loadProjectMembers(false);
       applyAccessMode();
+    }
+
+    async function loadProjectMembers(showFeedback) {
+      if (!state.activeProjectId) {
+        state.projectMembers = [];
+        renderProjectMembers();
+        return;
+      }
+      try {
+        const payload = await apiFetch(`/projects/${state.activeProjectId}/members`);
+        state.projectMembers = payload.members || [];
+        renderProjectMembers();
+        if (showFeedback) showToast('Список участников обновлён.');
+      } catch (error) {
+        if (showFeedback) showToast(error.message || 'Не удалось загрузить участников.');
+      }
+    }
+
+    async function updateMemberRole(userId, role) {
+      if (state.activeProjectRole !== 'owner') {
+        showToast('Только владелец может менять роли.');
+        return;
+      }
+      try {
+        const payload = await apiFetch(`/projects/${state.activeProjectId}/members/${userId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ role })
+        });
+        updateActiveProjectMeta(payload.updatedAt || '');
+        await loadProjectMembers(false);
+        showToast('Роль участника обновлена.');
+      } catch (error) {
+        showToast(error.message || 'Не удалось обновить роль.');
+      }
+    }
+
+    async function removeMember(userId) {
+      if (state.activeProjectRole !== 'owner') {
+        showToast('Только владелец может удалять участников.');
+        return;
+      }
+      const ok = window.confirm('Удалить участника из проекта?');
+      if (!ok) return;
+      try {
+        const payload = await apiFetch(`/projects/${state.activeProjectId}/members/${userId}`, {
+          method: 'DELETE'
+        });
+        updateActiveProjectMeta(payload.updatedAt || '');
+        await loadProjectMembers(false);
+        showToast('Участник удалён.');
+      } catch (error) {
+        showToast(error.message || 'Не удалось удалить участника.');
+      }
     }
 
     async function loadProjectSession(showFeedback) {
@@ -1447,6 +1631,7 @@
       els.inviteEmail.disabled = state.activeProjectRole !== 'owner';
       els.inviteRole.disabled = state.activeProjectRole !== 'owner';
       els.inviteBtn.disabled = state.activeProjectRole !== 'owner';
+      renderProjectMembers();
     }
 
     function loadAuthFromStorage() {
@@ -1472,6 +1657,7 @@
     function logout() {
       state.auth = { token: '', user: null };
       state.projects = [];
+      state.projectMembers = [];
       state.activeProjectId = '';
       state.activeProjectRole = '';
       clearTimeout(state.saveDebounceTimer);

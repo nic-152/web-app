@@ -88,6 +88,16 @@ function canWriteProject(role) {
   return role === 'owner' || role === 'editor';
 }
 
+function mapProjectMember(member, users) {
+  const user = users.find((u) => u.id === member.userId);
+  return {
+    userId: member.userId,
+    role: member.role,
+    email: user?.email || '',
+    name: user?.name || ''
+  };
+}
+
 function authRequired(req, res, next) {
   const auth = req.headers.authorization || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
@@ -225,6 +235,9 @@ app.post('/api/projects/:projectId/members', authRequired, async (req, res) => {
 
     const existing = getMembership(project, invitee.id);
     if (existing) {
+      if (invitee.id === project.ownerId) {
+        return res.status(400).json({ error: 'Нельзя изменить роль владельца.' });
+      }
       existing.role = role;
     } else {
       project.members.push({ userId: invitee.id, role });
@@ -238,6 +251,91 @@ app.post('/api/projects/:projectId/members', authRequired, async (req, res) => {
     });
   } catch {
     res.status(500).json({ error: 'Ошибка выдачи доступа.' });
+  }
+});
+
+app.get('/api/projects/:projectId/members', authRequired, async (req, res) => {
+  try {
+    const projectId = String(req.params.projectId || '');
+    const projects = await readProjects();
+    const users = await readUsers();
+    const project = projects.find((p) => p.id === projectId);
+    if (!project) return res.status(404).json({ error: 'Проект не найден.' });
+
+    const membership = getMembership(project, req.user.sub);
+    if (!membership) return res.status(403).json({ error: 'Нет доступа к проекту.' });
+
+    const members = project.members.map((m) => mapProjectMember(m, users));
+    res.json({ members });
+  } catch {
+    res.status(500).json({ error: 'Ошибка загрузки участников.' });
+  }
+});
+
+app.patch('/api/projects/:projectId/members/:userId', authRequired, async (req, res) => {
+  try {
+    const projectId = String(req.params.projectId || '');
+    const userId = String(req.params.userId || '');
+    const role = String(req.body.role || '').toLowerCase();
+    if (!['editor', 'viewer'].includes(role)) return res.status(400).json({ error: 'Роль должна быть editor или viewer.' });
+
+    const projects = await readProjects();
+    const users = await readUsers();
+    const project = projects.find((p) => p.id === projectId);
+    if (!project) return res.status(404).json({ error: 'Проект не найден.' });
+
+    const actorMembership = getMembership(project, req.user.sub);
+    if (!actorMembership || actorMembership.role !== 'owner') {
+      return res.status(403).json({ error: 'Только владелец может управлять доступом.' });
+    }
+
+    if (userId === project.ownerId) {
+      return res.status(400).json({ error: 'Нельзя изменить роль владельца.' });
+    }
+
+    const target = getMembership(project, userId);
+    if (!target) return res.status(404).json({ error: 'Участник не найден.' });
+
+    target.role = role;
+    project.updatedAt = new Date().toISOString();
+    await writeProjects(projects);
+
+    res.json({
+      member: mapProjectMember(target, users),
+      updatedAt: project.updatedAt
+    });
+  } catch {
+    res.status(500).json({ error: 'Ошибка обновления роли участника.' });
+  }
+});
+
+app.delete('/api/projects/:projectId/members/:userId', authRequired, async (req, res) => {
+  try {
+    const projectId = String(req.params.projectId || '');
+    const userId = String(req.params.userId || '');
+
+    const projects = await readProjects();
+    const project = projects.find((p) => p.id === projectId);
+    if (!project) return res.status(404).json({ error: 'Проект не найден.' });
+
+    const actorMembership = getMembership(project, req.user.sub);
+    if (!actorMembership || actorMembership.role !== 'owner') {
+      return res.status(403).json({ error: 'Только владелец может управлять доступом.' });
+    }
+
+    if (userId === project.ownerId) {
+      return res.status(400).json({ error: 'Нельзя удалить владельца из проекта.' });
+    }
+
+    const before = project.members.length;
+    project.members = project.members.filter((m) => m.userId !== userId);
+    if (project.members.length === before) return res.status(404).json({ error: 'Участник не найден.' });
+
+    project.updatedAt = new Date().toISOString();
+    await writeProjects(projects);
+    res.json({ ok: true, updatedAt: project.updatedAt });
+  } catch {
+    res.status(500).json({ error: 'Ошибка удаления участника.' });
   }
 });
 
