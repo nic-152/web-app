@@ -385,10 +385,10 @@ app.put('/api/projects/:projectId/session', authRequired, async (req, res) => {
   }
 });
 
-app.use(express.static(ROOT_DIR));
 app.get('/', (_req, res) => {
   res.sendFile(path.join(ROOT_DIR, 'ip-camera-testing.html'));
 });
+app.use(express.static(ROOT_DIR, { index: false }));
 
 await ensureDataFile();
 app.listen(PORT, () => {
