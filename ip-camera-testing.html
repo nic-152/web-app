@@ -1,0 +1,1357 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IP Camera Testing System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-primary: #0a0e1a;
+      --bg-secondary: #141b2d;
+      --bg-tertiary: #1e2740;
+      --accent-primary: #00d4ff;
+      --accent-secondary: #3b82f6;
+      --accent-success: #10b981;
+      --accent-warning: #f59e0b;
+      --accent-error: #ef4444;
+      --text-primary: #e2e8f0;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --border-color: #334155;
+      --pending: #6b7280;
+      --shadow: 0 14px 32px rgba(0, 0, 0, 0.35);
+      --radius-lg: 16px;
+      --radius-md: 12px;
+      --radius-sm: 9px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--text-primary);
+      background:
+        radial-gradient(circle at 8% 8%, rgba(0, 212, 255, 0.16), transparent 26%),
+        radial-gradient(circle at 92% 18%, rgba(16, 185, 129, 0.11), transparent 30%),
+        linear-gradient(160deg, #070b17, #0f172a 52%, #121f38);
+      padding: 22px;
+    }
+
+    .app {
+      max-width: 1500px;
+      margin: 0 auto;
+      display: grid;
+      gap: 18px;
+      animation: fadeIn 260ms ease;
+    }
+
+    .surface {
+      background: linear-gradient(170deg, rgba(20, 27, 45, 0.95), rgba(16, 22, 39, 0.97));
+      border: 1px solid rgba(71, 85, 105, 0.55);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+    }
+
+    .header {
+      padding: 22px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+    }
+
+    .title {
+      margin: 0;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 0.02em;
+      font-size: clamp(1.2rem, 2.2vw, 1.8rem);
+    }
+
+    .subtitle {
+      margin: 8px 0 0;
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
+    .progress-badge {
+      border: 1px solid rgba(0, 212, 255, 0.4);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--accent-primary);
+      white-space: nowrap;
+      font-size: 0.9rem;
+      background: rgba(0, 212, 255, 0.1);
+    }
+
+    .grid-2 {
+      padding: 18px;
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 18px;
+    }
+
+    .panel {
+      background: rgba(15, 23, 42, 0.62);
+      border: 1px solid rgba(71, 85, 105, 0.5);
+      border-radius: var(--radius-md);
+      padding: 14px;
+    }
+
+    .panel h2 {
+      margin: 0 0 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.95rem;
+      color: var(--accent-primary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .inputs {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .field { display: grid; gap: 6px; }
+
+    .field label {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    input[type='text'],
+    input[type='date'],
+    textarea,
+    .search input {
+      width: 100%;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      background: rgba(15, 23, 42, 0.78);
+      color: var(--text-primary);
+      padding: 10px 12px;
+      font: inherit;
+      transition: border-color 160ms ease, box-shadow 160ms ease;
+    }
+
+    input:focus,
+    textarea:focus,
+    .search input:focus {
+      outline: none;
+      border-color: rgba(0, 212, 255, 0.75);
+      box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.2);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .stat {
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(71, 85, 105, 0.6);
+      background: rgba(2, 6, 23, 0.45);
+      padding: 10px;
+      min-height: 72px;
+      display: grid;
+      align-content: center;
+      gap: 6px;
+    }
+
+    .stat .name {
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .stat .value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.15rem;
+      font-weight: 700;
+    }
+
+    .value.passed { color: var(--accent-success); }
+    .value.failed { color: var(--accent-error); }
+    .value.maybe { color: var(--accent-warning); }
+    .value.pending { color: #a7aebc; }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .btn {
+      border: 1px solid rgba(71, 85, 105, 0.7);
+      background: rgba(15, 23, 42, 0.85);
+      color: var(--text-primary);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      cursor: pointer;
+      font: inherit;
+      min-height: 38px;
+      transition: transform 120ms ease, border-color 160ms ease, background 160ms ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(0, 212, 255, 0.6);
+      background: rgba(30, 41, 59, 0.95);
+    }
+
+    .btn.primary {
+      background: linear-gradient(160deg, rgba(0, 212, 255, 0.2), rgba(59, 130, 246, 0.16));
+      border-color: rgba(0, 212, 255, 0.62);
+    }
+
+    .search {
+      padding: 0 18px 18px;
+    }
+
+    .search input { font-size: 0.95rem; }
+
+    .tree {
+      display: grid;
+      gap: 12px;
+      padding: 0 18px 18px;
+    }
+
+    .section {
+      border: 1px solid rgba(71, 85, 105, 0.6);
+      border-radius: var(--radius-md);
+      background: rgba(15, 23, 42, 0.66);
+      overflow: hidden;
+    }
+
+    .section-header {
+      width: 100%;
+      border: 0;
+      background: linear-gradient(160deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.88));
+      color: var(--text-primary);
+      padding: 12px 14px;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      transition: background 160ms ease;
+      min-height: 42px;
+    }
+
+    .section-header:hover { background: rgba(30, 41, 59, 0.95); }
+
+    .section-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .section-title {
+      font-weight: 700;
+      font-size: 0.96rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .section-progress {
+      color: var(--text-secondary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      white-space: nowrap;
+    }
+
+    .tests {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+    }
+
+    .test-item {
+      border: 1px solid rgba(71, 85, 105, 0.52);
+      border-radius: var(--radius-sm);
+      background: rgba(2, 6, 23, 0.5);
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .test-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .test-name {
+      margin: 0;
+      font-size: 0.98rem;
+      line-height: 1.35;
+    }
+
+    .test-details {
+      margin: 4px 0 0;
+      font-size: 0.86rem;
+      color: var(--text-secondary);
+      line-height: 1.35;
+    }
+
+    .status-buttons {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .status-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 1px solid rgba(71, 85, 105, 0.72);
+      background: rgba(15, 23, 42, 0.95);
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 1rem;
+      transition: transform 120ms ease, border-color 160ms ease;
+    }
+
+    .status-btn:hover { transform: translateY(-1px); }
+
+    .status-btn.active.passed {
+      border-color: rgba(16, 185, 129, 0.9);
+      color: var(--accent-success);
+      background: rgba(16, 185, 129, 0.12);
+    }
+
+    .status-btn.active.failed {
+      border-color: rgba(239, 68, 68, 0.95);
+      color: var(--accent-error);
+      background: rgba(239, 68, 68, 0.12);
+    }
+
+    .status-btn.active.maybe {
+      border-color: rgba(245, 158, 11, 0.95);
+      color: var(--accent-warning);
+      background: rgba(245, 158, 11, 0.15);
+    }
+
+    .test-bottom {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      align-items: start;
+    }
+
+    .notes textarea {
+      min-height: 80px;
+      resize: vertical;
+      line-height: 1.35;
+    }
+
+    .shots {
+      display: grid;
+      gap: 8px;
+    }
+
+    .uploader {
+      border: 1px dashed rgba(71, 85, 105, 0.9);
+      border-radius: var(--radius-sm);
+      padding: 10px;
+      background: rgba(15, 23, 42, 0.6);
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      min-height: 60px;
+    }
+
+    .uploader.drag {
+      border-color: rgba(0, 212, 255, 0.85);
+      background: rgba(0, 212, 255, 0.12);
+    }
+
+    .upload-text {
+      color: var(--text-secondary);
+      font-size: 0.83rem;
+    }
+
+    .screens {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .shot {
+      position: relative;
+      border-radius: 8px;
+      overflow: hidden;
+      background: rgba(15, 23, 42, 0.8);
+      aspect-ratio: 4 / 3;
+      border: 1px solid rgba(71, 85, 105, 0.72);
+    }
+
+    .shot img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      cursor: zoom-in;
+      display: block;
+    }
+
+    .shot-delete {
+      position: absolute;
+      right: 6px;
+      top: 6px;
+      width: 24px;
+      height: 24px;
+      border: 0;
+      border-radius: 6px;
+      background: rgba(2, 6, 23, 0.86);
+      color: #f8fafc;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+
+    .shot-delete:hover { background: rgba(239, 68, 68, 0.9); }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.76);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+
+    .modal.show { display: flex; }
+
+    .modal-box {
+      width: min(980px, 100%);
+      max-height: 90vh;
+      overflow: auto;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(71, 85, 105, 0.8);
+      background: linear-gradient(170deg, rgba(20, 27, 45, 0.98), rgba(12, 18, 33, 0.98));
+      box-shadow: var(--shadow);
+      padding: 16px;
+      position: relative;
+    }
+
+    .modal-close {
+      position: absolute;
+      right: 10px;
+      top: 10px;
+      width: 34px;
+      height: 34px;
+      border: 0;
+      border-radius: 8px;
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text-primary);
+      cursor: pointer;
+      font-size: 1.2rem;
+    }
+
+    .modal-close:hover { background: rgba(239, 68, 68, 0.9); }
+
+    .report {
+      width: 100%;
+      min-height: 400px;
+      resize: vertical;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.83rem;
+      line-height: 1.35;
+      white-space: pre;
+    }
+
+    .report-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    .image-modal-content img {
+      width: 100%;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(71, 85, 105, 0.8);
+      display: block;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 20px;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(71, 85, 105, 0.8);
+      color: var(--text-primary);
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 0.86rem;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 200ms ease, transform 200ms ease;
+      z-index: 1100;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 1200px) {
+      .grid-2,
+      .test-bottom {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (min-width: 1600px) {
+      .screens {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 768px) {
+      body { padding: 12px; }
+      .header { padding: 16px; }
+      .grid-2,
+      .search,
+      .tree { padding-left: 12px; padding-right: 12px; }
+      .inputs { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .screens { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .test-top { flex-direction: column; }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="surface header">
+      <div>
+        <h1 class="title">IP Camera Testing System</h1>
+        <p class="subtitle">Командная система тестирования функционала IP-камер с автосохранением локально.</p>
+      </div>
+      <div class="progress-badge" id="overallProgress">Прогресс: 0%</div>
+    </section>
+
+    <section class="surface grid-2">
+      <div class="panel">
+        <h2>Информация о тестировании</h2>
+        <div class="inputs">
+          <div class="field">
+            <label for="projectName">Проект</label>
+            <input id="projectName" type="text" placeholder="Например: Тестирование IPC-HFW5442E-ZE" />
+          </div>
+          <div class="field">
+            <label for="testerName">Тестировщик</label>
+            <input id="testerName" type="text" placeholder="Имя тестировщика" />
+          </div>
+          <div class="field">
+            <label for="cameraModel">Модель камеры</label>
+            <input id="cameraModel" type="text" placeholder="IPC-HFW5442E-ZE" />
+          </div>
+          <div class="field">
+            <label for="firmwareVersion">Версия прошивки</label>
+            <input id="firmwareVersion" type="text" placeholder="v2.840.0000000.1.R" />
+          </div>
+          <div class="field">
+            <label for="testDate">Дата тестирования</label>
+            <input id="testDate" type="date" />
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Статистика</h2>
+        <div class="stats-grid">
+          <article class="stat"><div class="name">✓ Пройдено</div><div class="value passed" id="statPassed">0</div></article>
+          <article class="stat"><div class="name">✗ Не пройдено</div><div class="value failed" id="statFailed">0</div></article>
+          <article class="stat"><div class="name">? Возможно</div><div class="value maybe" id="statMaybe">0</div></article>
+          <article class="stat"><div class="name">○ Ожидает</div><div class="value pending" id="statPending">0</div></article>
+        </div>
+        <div class="actions">
+          <button class="btn primary" id="exportBtn" title="Сформировать и открыть отчёт">📊 Экспорт результатов</button>
+          <button class="btn" id="saveBtn" title="Сохранить данные в localStorage">💾 Сохранить прогресс</button>
+          <button class="btn" id="loadBtn" title="Загрузить последнюю сохранённую сессию">📂 Загрузить прогресс</button>
+          <button class="btn" id="resetBtn" title="Очистить статусы, заметки и скриншоты">🔄 Сбросить все</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="surface search">
+      <input id="searchInput" type="text" placeholder="Поиск по названию, деталям или примечаниям..." />
+    </section>
+
+    <section class="surface tree" id="testTree"></section>
+  </main>
+
+  <div class="modal" id="reportModal" aria-hidden="true">
+    <div class="modal-box">
+      <button class="modal-close" data-close="reportModal" title="Закрыть">×</button>
+      <h2 style="margin-top:0;font-family:'JetBrains Mono',monospace;">Экспорт результатов</h2>
+      <textarea id="reportText" class="report" readonly></textarea>
+      <div class="report-actions">
+        <button class="btn primary" id="copyReportBtn" title="Копировать отчёт в буфер">Копировать</button>
+        <button class="btn" id="downloadReportBtn" title="Скачать отчёт как TXT">Скачать TXT</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="imageModal" aria-hidden="true">
+    <div class="modal-box image-modal-content">
+      <button class="modal-close" data-close="imageModal" title="Закрыть">×</button>
+      <img id="fullImage" src="" alt="Screenshot preview" />
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const STORAGE_KEY = 'ipCameraTestData';
+    const STATUS = {
+      pending: { icon: '○', label: 'Ожидает' },
+      passed: { icon: '✓', label: 'Пройдено' },
+      failed: { icon: '✗', label: 'Не пройдено' },
+      maybe: { icon: '?', label: 'Возможно' }
+    };
+
+    const testData = [
+      {
+        id: 'base-settings',
+        name: 'Основные настройки',
+        icon: '🔧',
+        tests: [
+          { id: 'base-device-name', name: 'Имя устройства', details: 'Проверить изменение имени и сохранение после перезагрузки.' },
+          { id: 'base-af-lens', name: 'Инициализация объектива AF LENS', details: 'Проверить автокалибровку фокуса и корректность инициализации.' },
+          { id: 'base-mobile-p2p', name: 'Mobile P2P', details: 'Проверить добавление камеры в мобильное приложение и стабильность P2P.' }
+        ]
+      },
+      {
+        id: 'system',
+        name: 'Система (System)',
+        icon: '🖥️',
+        tests: [
+          { id: 'sys-date-time', name: 'Дата и время', details: 'Проверка ручной установки даты/времени.' },
+          { id: 'sys-ntp', name: 'Синхронизация с NTP', details: 'Проверить синхронизацию с NTP-сервером.' },
+          { id: 'sys-dst', name: 'Летнее время', details: 'Проверить переключение DST.' },
+          { id: 'sys-auto-reboot', name: 'Автоматическая перезагрузка', details: 'Проверить расписание автоперезагрузки.' },
+          { id: 'sys-maintenance', name: 'Обслуживание устройства', details: 'Проверить очистку/сервисные операции.' },
+          { id: 'sys-config-impex', name: 'Конфигурация (экспорт/импорт)', details: 'Проверка экспорта и восстановления конфигурации.' },
+          { id: 'sys-fw-update', name: 'Обновление прошивки', details: 'Проверить процедуру обновления и сохранность настроек.' },
+          { id: 'sys-ptz-rs485', name: 'PTZ/RS485', details: 'Проверка интерфейса RS485 и связи с PTZ.' },
+          { id: 'sys-alarm-if', name: 'Интерфейс тревог', details: 'Проверить реакцию на тревожные входы/выходы.' },
+          { id: 'sys-info', name: 'Системная информация', details: 'Проверка корректности отображаемых системных данных.' },
+          { id: 'sys-logs', name: 'Логи', details: 'Проверить запись и отображение журналов событий.' }
+        ]
+      },
+      {
+        id: 'network',
+        name: 'Сеть (Network)',
+        icon: '🌐',
+        tests: [
+          { id: 'net-tcpip', name: 'TCP/IP', details: 'Проверить DHCP/статический адрес и доступность камеры.' },
+          { id: 'net-dns', name: 'DNS', details: 'Проверка резолвинга доменных имён.' },
+          { id: 'net-ports', name: 'Порты', details: 'Проверить изменения HTTP/HTTPS/RTSP портов.' },
+          { id: 'net-wifi', name: 'WiFi', details: 'Проверка подключения к WiFi-сети и стабильности.' },
+          { id: 'net-pppoe', name: 'PPPoE', details: 'Проверка PPPoE-авторизации.' },
+          { id: 'net-smtp', name: 'SMTP', details: 'Проверка отправки email-уведомлений.' },
+          { id: 'net-upnp', name: 'UPnP', details: 'Проверка автонастройки портов через UPnP.' },
+          { id: 'net-ddns', name: 'DDNS', details: 'Проверка обновления DDNS-записей.' },
+          { id: 'net-rtsp', name: 'RTSP', details: 'Проверить доступность RTSP-потока.' },
+          { id: 'net-rtmp', name: 'RTMP', details: 'Проверить публикацию видеопотока RTMP.' },
+          { id: 'net-sip', name: 'VoIP/SIP', details: 'Проверить SIP-регистрацию и вызовы.' },
+          { id: 'net-snmp', name: 'SNMP', details: 'Проверка SNMP-метрик и доступа.' },
+          { id: 'net-8021x', name: 'IEEE 802.1x', details: 'Проверка сетевой аутентификации.' },
+          { id: 'net-bonjour', name: 'Bonjour', details: 'Проверка обнаружения устройства в сети.' },
+          { id: 'net-gb28181', name: 'GB28181', details: 'Проверка регистрации и передачи в GB28181.' },
+          { id: 'net-qos', name: 'QoS', details: 'Проверка приоритизации трафика.' },
+          { id: 'net-https', name: 'HTTPS', details: 'Проверка сертификатов и безопасного доступа.' }
+        ]
+      },
+      {
+        id: 'video',
+        name: 'Видео (Video)',
+        icon: '🎥',
+        tests: [
+          { id: 'vid-stream-main', name: 'Кодирование: основной поток', details: 'Проверить битрейт, FPS, кодек, GOP.' },
+          { id: 'vid-stream-sub', name: 'Кодирование: подпоток', details: 'Проверить настройки подпотока.' },
+          { id: 'vid-stream-third', name: 'Кодирование: третий поток', details: 'Проверить настройки третьего потока.' },
+          { id: 'vid-roi', name: 'ROI', details: 'Проверить область интереса и влияние на качество.' },
+          { id: 'vid-osd', name: 'OSD', details: 'Проверка отображения даты/текста в OSD.' },
+          { id: 'vid-privacy-mask', name: 'Маски приватности', details: 'Проверка создания и применения масок.' },
+          { id: 'vid-image', name: 'Настройки изображения', details: 'Яркость, контраст, насыщенность, резкость.' },
+          { id: 'vid-exposure', name: 'Экспозиция', details: 'Проверка режимов экспозиции.' },
+          { id: 'vid-white-balance', name: 'Баланс белого', details: 'Проверка корректности цветопередачи.' },
+          { id: 'vid-day-night', name: 'День/Ночь', details: 'Проверка переключения режимов.' },
+          { id: 'vid-ir', name: 'ИК подсветка', details: 'Проверка работы ИК-подсветки.' },
+          { id: 'vid-defog', name: 'Устранение тумана', details: 'Проверка функции Defog.' },
+          { id: 'vid-wdr', name: 'WDR', details: 'Проверка работы Wide Dynamic Range.' },
+          { id: 'vid-blc', name: 'BLC', details: 'Проверка компенсации задней подсветки.' },
+          { id: 'vid-hlc', name: 'HLC', details: 'Проверка компенсации засветки.' },
+          { id: 'vid-mirror-flip', name: 'Зеркало и переворот', details: 'Проверить корректность ориентации изображения.' },
+          { id: 'vid-corridor', name: 'Режим коридора', details: 'Проверка коридорного режима.' }
+        ]
+      },
+      {
+        id: 'audio',
+        name: 'Аудио (Audio)',
+        icon: '🔊',
+        tests: [
+          { id: 'aud-encoding', name: 'Кодирование', details: 'Проверить аудиокодек и качество звука.' },
+          { id: 'aud-io', name: 'Входы/выходы', details: 'Проверка аудиовхода и аудиовыхода.' },
+          { id: 'aud-denoise', name: 'Шумоподавление', details: 'Проверка подавления шума.' },
+          { id: 'aud-detection', name: 'Детекция звука', details: 'Проверить тревогу при звуковых событиях.' }
+        ]
+      },
+      {
+        id: 'storage',
+        name: 'Хранение (Storage)',
+        icon: '💾',
+        tests: [
+          { id: 'sto-schedule', name: 'Расписание записи', details: 'Проверка расписания постоянной/событийной записи.' },
+          { id: 'sto-sd', name: 'SD карта', details: 'Проверка распознавания и записи на SD.' },
+          { id: 'sto-nas', name: 'NAS', details: 'Проверка подключения к NAS и записи.' },
+          { id: 'sto-ftp', name: 'FTP', details: 'Проверка выгрузки файлов на FTP.' },
+          { id: 'sto-cloud', name: 'Облачное хранилище', details: 'Проверка интеграции облачного хранилища.' },
+          { id: 'sto-overwrite', name: 'Перезапись', details: 'Проверить поведение при переполнении хранилища.' }
+        ]
+      },
+      {
+        id: 'events',
+        name: 'События (Events)',
+        icon: '🚨',
+        tests: [
+          { id: 'evt-motion', name: 'Детекция движения', details: 'Проверка зоны, чувствительности и реакции.' },
+          { id: 'evt-tamper', name: 'Саботаж', details: 'Проверка детекции перекрытия камеры.' },
+          { id: 'evt-scene', name: 'Изменение сцены', details: 'Проверка тревоги при изменении сцены.' },
+          { id: 'evt-alarm-io', name: 'Тревожные входы/выходы', details: 'Проверка работы I/O тревог.' },
+          { id: 'evt-anomaly', name: 'Аномалии', details: 'Проверка тревог при сетевых/системных аномалиях.' },
+          { id: 'evt-actions', name: 'Действия при событиях', details: 'Почта, запись, PTZ-реакция, тревожный выход.' }
+        ]
+      },
+      {
+        id: 'smart',
+        name: 'Видеоаналитика (Smart Analysis)',
+        icon: '🧠',
+        tests: [
+          { id: 'sm-face', name: 'Обнаружение лиц', details: 'Проверка детекции лиц и стабильности триггера.' },
+          { id: 'sm-human', name: 'Детектор людей', details: 'Проверка классификации человека.' },
+          { id: 'sm-vehicle', name: 'Детектор автомобилей', details: 'Проверка классификации транспортных средств.' },
+          { id: 'sm-line-cross', name: 'Пересечение линий', details: 'Проверить триггеры crossing line.' },
+          { id: 'sm-intrusion', name: 'Вторжение', details: 'Проверить intrusion detection.' },
+          { id: 'sm-loitering', name: 'Loitering', details: 'Проверить тревогу при задержке в зоне.' },
+          { id: 'sm-object', name: 'Оставленные/пропавшие объекты', details: 'Проверить abandoned/missing object.' },
+          { id: 'sm-crowd', name: 'Плотность толпы', details: 'Проверка подсчёта плотности/переполнения.' }
+        ]
+      },
+      {
+        id: 'security',
+        name: 'Безопасность (Security)',
+        icon: '🔐',
+        tests: [
+          { id: 'sec-users', name: 'Управление пользователями', details: 'Создание/редактирование/удаление пользователей.' },
+          { id: 'sec-groups', name: 'Группы и права доступа', details: 'Проверить гранулярные права.' },
+          { id: 'sec-ip-filter', name: 'IP фильтр', details: 'Проверка whitelist/blacklist.' },
+          { id: 'sec-policy', name: 'Политика паролей', details: 'Сложность и срок действия паролей.' },
+          { id: 'sec-https', name: 'HTTPS', details: 'Проверка TLS-доступа и сертификатов.' },
+          { id: 'sec-telnet-ssh', name: 'Telnet/SSH', details: 'Проверка ограничений удалённого доступа.' }
+        ]
+      },
+      {
+        id: 'ptz',
+        name: 'PTZ Управление',
+        icon: '🎛️',
+        tests: [
+          { id: 'ptz-dir', name: 'Направление', details: 'Проверить поворот/наклон камеры.' },
+          { id: 'ptz-zoom', name: 'Зум', details: 'Проверить zoom in/zoom out.' },
+          { id: 'ptz-focus', name: 'Фокус', details: 'Проверить авто и ручной фокус.' },
+          { id: 'ptz-iris', name: 'Диафрагма', details: 'Проверить управление iris.' },
+          { id: 'ptz-presets', name: 'Предустановки', details: 'Проверка сохранения и вызова пресетов.' },
+          { id: 'ptz-tours', name: 'Туры', details: 'Проверка последовательностей обхода.' },
+          { id: 'ptz-patterns', name: 'Паттерны', details: 'Проверка записи и воспроизведения паттернов.' },
+          { id: 'ptz-autoscan', name: 'Автосканирование', details: 'Проверка режима автосканирования.' },
+          { id: 'ptz-home', name: 'Домашняя позиция', details: 'Проверка возврата в home позицию.' }
+        ]
+      }
+    ];
+
+    const state = {
+      testStates: {},
+      testNotes: {},
+      testScreenshots: {},
+      sectionCollapsed: {},
+      projectName: '',
+      cameraModel: '',
+      firmwareVersion: '',
+      testerName: '',
+      testDate: '',
+      savedAt: '',
+      searchQuery: ''
+    };
+
+    const els = {
+      projectName: document.getElementById('projectName'),
+      cameraModel: document.getElementById('cameraModel'),
+      firmwareVersion: document.getElementById('firmwareVersion'),
+      testerName: document.getElementById('testerName'),
+      testDate: document.getElementById('testDate'),
+      searchInput: document.getElementById('searchInput'),
+      testTree: document.getElementById('testTree'),
+      overallProgress: document.getElementById('overallProgress'),
+      statPassed: document.getElementById('statPassed'),
+      statFailed: document.getElementById('statFailed'),
+      statMaybe: document.getElementById('statMaybe'),
+      statPending: document.getElementById('statPending'),
+      exportBtn: document.getElementById('exportBtn'),
+      saveBtn: document.getElementById('saveBtn'),
+      loadBtn: document.getElementById('loadBtn'),
+      resetBtn: document.getElementById('resetBtn'),
+      reportModal: document.getElementById('reportModal'),
+      imageModal: document.getElementById('imageModal'),
+      reportText: document.getElementById('reportText'),
+      copyReportBtn: document.getElementById('copyReportBtn'),
+      downloadReportBtn: document.getElementById('downloadReportBtn'),
+      fullImage: document.getElementById('fullImage'),
+      toast: document.getElementById('toast')
+    };
+
+    function init() {
+      const today = new Date().toISOString().slice(0, 10);
+      state.testDate = today;
+      els.testDate.value = today;
+      loadFromLocalStorage(true);
+      bindGlobalEvents();
+      render();
+    }
+
+    function bindGlobalEvents() {
+      [
+        ['projectName', 'projectName'],
+        ['cameraModel', 'cameraModel'],
+        ['firmwareVersion', 'firmwareVersion'],
+        ['testerName', 'testerName'],
+        ['testDate', 'testDate']
+      ].forEach(([elKey, stateKey]) => {
+        els[elKey].addEventListener('input', (e) => {
+          state[stateKey] = e.target.value;
+          saveToLocalStorage();
+        });
+      });
+
+      els.searchInput.addEventListener('input', (e) => {
+        state.searchQuery = e.target.value.trim().toLowerCase();
+        renderTree();
+      });
+
+      els.exportBtn.addEventListener('click', () => {
+        els.reportText.value = generateReport();
+        openModal(els.reportModal);
+      });
+
+      els.saveBtn.addEventListener('click', () => {
+        saveToLocalStorage();
+        showToast('Прогресс сохранён.');
+      });
+
+      els.loadBtn.addEventListener('click', () => {
+        loadFromLocalStorage(false);
+      });
+
+      els.resetBtn.addEventListener('click', () => {
+        const ok = window.confirm('Сбросить все статусы, примечания и скриншоты?');
+        if (!ok) return;
+        state.testStates = {};
+        state.testNotes = {};
+        state.testScreenshots = {};
+        saveToLocalStorage();
+        render();
+        showToast('Данные тестов очищены.');
+      });
+
+      els.copyReportBtn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(els.reportText.value);
+          showToast('Отчёт скопирован в буфер обмена.');
+        } catch {
+          showToast('Не удалось скопировать отчёт.');
+        }
+      });
+
+      els.downloadReportBtn.addEventListener('click', () => {
+        const model = sanitizeFilePart(state.cameraModel || 'camera');
+        const date = sanitizeFilePart(state.testDate || new Date().toISOString().slice(0, 10));
+        const fileName = `test_report_${model}_${date}.txt`;
+        const blob = new Blob([els.reportText.value], { type: 'text/plain;charset=utf-8' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = fileName;
+        link.click();
+        URL.revokeObjectURL(link.href);
+      });
+
+      document.querySelectorAll('[data-close]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-close');
+          closeModal(document.getElementById(id));
+        });
+      });
+
+      [els.reportModal, els.imageModal].forEach((modal) => {
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) closeModal(modal);
+        });
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          closeModal(els.reportModal);
+          closeModal(els.imageModal);
+        }
+      });
+    }
+
+    function render() {
+      fillHeaderInputs();
+      renderTree();
+      updateStats();
+    }
+
+    function fillHeaderInputs() {
+      els.projectName.value = state.projectName || '';
+      els.cameraModel.value = state.cameraModel || '';
+      els.firmwareVersion.value = state.firmwareVersion || '';
+      els.testerName.value = state.testerName || '';
+      els.testDate.value = state.testDate || new Date().toISOString().slice(0, 10);
+    }
+
+    function renderTree() {
+      const query = state.searchQuery;
+      const html = [];
+
+      for (const section of testData) {
+        const tests = section.tests.filter((test) => matchesSearch(test, query));
+        if (query && tests.length === 0) continue;
+
+        const collapsed = !!state.sectionCollapsed[section.id] && !query;
+        const done = tests.filter((t) => getStatus(t.id) !== 'pending').length;
+
+        html.push(`
+          <article class="section">
+            <button class="section-header" data-section-toggle="${section.id}" title="Свернуть/развернуть раздел">
+              <span class="section-left">
+                <span>${section.icon}</span>
+                <span class="section-title">${escapeHtml(section.name)}</span>
+              </span>
+              <span class="section-progress">${done}/${tests.length}</span>
+            </button>
+            <div class="tests ${collapsed ? 'hidden' : ''}" id="section-${section.id}">
+              ${tests.map((test) => renderTestItem(test)).join('')}
+            </div>
+          </article>
+        `);
+      }
+
+      els.testTree.innerHTML = html.join('') || '<div class="panel">Ничего не найдено по текущему запросу.</div>';
+
+      els.testTree.querySelectorAll('[data-section-toggle]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-section-toggle');
+          state.sectionCollapsed[id] = !state.sectionCollapsed[id];
+          renderTree();
+          saveToLocalStorage();
+        });
+      });
+
+      bindTreeEvents();
+    }
+
+    function renderTestItem(test) {
+      const status = getStatus(test.id);
+      const note = state.testNotes[test.id] || '';
+      const screenshots = state.testScreenshots[test.id] || [];
+
+      const statusBtn = (type, symbol, title) => `
+        <button
+          class="status-btn ${status === type ? `active ${type}` : ''}"
+          data-status-btn="${test.id}:${type}"
+          title="${title}"
+          aria-label="${title}"
+        >${symbol}</button>
+      `;
+
+      return `
+        <div class="test-item" data-test-id="${test.id}">
+          <div class="test-top">
+            <div>
+              <h3 class="test-name">${escapeHtml(test.name)}</h3>
+              <p class="test-details">${escapeHtml(test.details)}</p>
+            </div>
+            <div class="status-buttons">
+              ${statusBtn('passed', '✓', 'Пройдено')}
+              ${statusBtn('failed', '✗', 'Не пройдено')}
+              ${statusBtn('maybe', '?', 'Возможно')}
+            </div>
+          </div>
+
+          <div class="test-bottom">
+            <div class="notes">
+              <textarea
+                data-note-input="${test.id}"
+                placeholder="Добавьте комментарии, результаты, найденные проблемы..."
+              >${escapeHtml(note)}</textarea>
+            </div>
+
+            <div class="shots">
+              <div class="uploader" data-drop-zone="${test.id}">
+                <span class="upload-text">Перетащите JPG/PNG/GIF сюда или загрузите вручную</span>
+                <button class="btn" data-upload-btn="${test.id}" type="button" title="Загрузить изображения">📤 Загрузить изображения</button>
+                <input class="hidden" data-upload-input="${test.id}" type="file" accept="image/png,image/jpeg,image/gif" multiple />
+              </div>
+              <div class="screens">${renderScreenshots(test.id, screenshots)}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderScreenshots(testId, screenshots) {
+      if (!screenshots.length) {
+        return '<div class="upload-text">Скриншоты не добавлены</div>';
+      }
+
+      return screenshots
+        .map((src, idx) => `
+          <div class="shot">
+            <img src="${src}" alt="Скриншот ${idx + 1}" data-open-image="${testId}:${idx}" />
+            <button class="shot-delete" type="button" data-delete-image="${testId}:${idx}" title="Удалить изображение">×</button>
+          </div>
+        `)
+        .join('');
+    }
+
+    function bindTreeEvents() {
+      els.testTree.querySelectorAll('[data-status-btn]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const [testId, status] = btn.getAttribute('data-status-btn').split(':');
+          setStatus(testId, status);
+        });
+      });
+
+      els.testTree.querySelectorAll('[data-note-input]').forEach((textarea) => {
+        autoResize(textarea);
+        textarea.addEventListener('input', (e) => {
+          const testId = e.target.getAttribute('data-note-input');
+          state.testNotes[testId] = e.target.value;
+          autoResize(e.target);
+          saveToLocalStorage();
+          updateStats();
+        });
+      });
+
+      els.testTree.querySelectorAll('[data-upload-btn]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const testId = btn.getAttribute('data-upload-btn');
+          const input = els.testTree.querySelector(`[data-upload-input="${testId}"]`);
+          input?.click();
+        });
+      });
+
+      els.testTree.querySelectorAll('[data-upload-input]').forEach((input) => {
+        input.addEventListener('change', async (e) => {
+          const testId = e.target.getAttribute('data-upload-input');
+          await addScreenshots(testId, Array.from(e.target.files || []));
+          e.target.value = '';
+        });
+      });
+
+      els.testTree.querySelectorAll('[data-drop-zone]').forEach((zone) => {
+        zone.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          zone.classList.add('drag');
+        });
+        zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+        zone.addEventListener('drop', async (e) => {
+          e.preventDefault();
+          zone.classList.remove('drag');
+          const testId = zone.getAttribute('data-drop-zone');
+          await addScreenshots(testId, Array.from(e.dataTransfer?.files || []));
+        });
+      });
+
+      els.testTree.querySelectorAll('[data-open-image]').forEach((img) => {
+        img.addEventListener('click', () => {
+          const [testId, idxRaw] = img.getAttribute('data-open-image').split(':');
+          const idx = Number(idxRaw);
+          els.fullImage.src = state.testScreenshots[testId][idx];
+          openModal(els.imageModal);
+        });
+      });
+
+      els.testTree.querySelectorAll('[data-delete-image]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const [testId, idxRaw] = btn.getAttribute('data-delete-image').split(':');
+          const idx = Number(idxRaw);
+          state.testScreenshots[testId].splice(idx, 1);
+          if (state.testScreenshots[testId].length === 0) delete state.testScreenshots[testId];
+          saveToLocalStorage();
+          renderTree();
+          updateStats();
+        });
+      });
+    }
+
+    function setStatus(testId, nextStatus) {
+      const current = getStatus(testId);
+      state.testStates[testId] = current === nextStatus ? 'pending' : nextStatus;
+      saveToLocalStorage();
+      renderTree();
+      updateStats();
+    }
+
+    function getStatus(testId) {
+      return state.testStates[testId] || 'pending';
+    }
+
+    async function addScreenshots(testId, files) {
+      if (!files.length) return;
+      const valid = files.filter((f) => /^image\/(png|jpeg|gif)$/.test(f.type));
+      if (!valid.length) {
+        showToast('Поддерживаются только JPG, PNG и GIF.');
+        return;
+      }
+
+      try {
+        const encoded = await Promise.all(valid.map(fileToBase64));
+        const current = state.testScreenshots[testId] || [];
+        state.testScreenshots[testId] = [...current, ...encoded];
+        saveToLocalStorage();
+        renderTree();
+        updateStats();
+      } catch {
+        showToast('Ошибка загрузки скриншота.');
+      }
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function updateStats() {
+      const allTests = testData.flatMap((section) => section.tests);
+      let passed = 0;
+      let failed = 0;
+      let maybe = 0;
+
+      for (const test of allTests) {
+        const st = getStatus(test.id);
+        if (st === 'passed') passed++;
+        else if (st === 'failed') failed++;
+        else if (st === 'maybe') maybe++;
+      }
+
+      const total = allTests.length;
+      const pending = total - passed - failed - maybe;
+      const done = total - pending;
+      const progress = total ? Math.round((done / total) * 100) : 0;
+
+      els.statPassed.textContent = String(passed);
+      els.statFailed.textContent = String(failed);
+      els.statMaybe.textContent = String(maybe);
+      els.statPending.textContent = String(pending);
+      els.overallProgress.textContent = `Прогресс: ${progress}% (${done}/${total})`;
+    }
+
+    function generateReport() {
+      const allTests = testData.flatMap((section) => section.tests);
+      const passed = allTests.filter((t) => getStatus(t.id) === 'passed').length;
+      const failed = allTests.filter((t) => getStatus(t.id) === 'failed').length;
+      const maybe = allTests.filter((t) => getStatus(t.id) === 'maybe').length;
+      const pending = allTests.length - passed - failed - maybe;
+      const progress = allTests.length ? Math.round(((passed + failed + maybe) / allTests.length) * 100) : 0;
+
+      const lines = [
+        '╔═══════════════════════════════════════════════════════════════╗',
+        '║        ОТЧЁТ О ТЕСТИРОВАНИИ IP-КАМЕРЫ                        ║',
+        '╚═══════════════════════════════════════════════════════════════╝',
+        '',
+        '📋 ОБЩАЯ ИНФОРМАЦИЯ',
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+        `Проект:            ${state.projectName || '-'}`,
+        `Модель камеры:     ${state.cameraModel || '-'}`,
+        `Версия прошивки:   ${state.firmwareVersion || '-'}`,
+        `Тестировщик:       ${state.testerName || '-'}`,
+        `Дата тестирования: ${state.testDate || '-'}`,
+        '',
+        '📊 СТАТИСТИКА',
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+        `✓ Пройдено:        ${passed}`,
+        `✗ Не пройдено:     ${failed}`,
+        `? Возможно:        ${maybe}`,
+        `○ Ожидает:         ${pending}`,
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+        `ВСЕГО ТЕСТОВ:      ${allTests.length}`,
+        `Прогресс:          ${progress}%`,
+        '',
+        '📝 РЕЗУЛЬТАТЫ ТЕСТИРОВАНИЯ',
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+      ];
+
+      for (const section of testData) {
+        lines.push('');
+        lines.push(`${section.icon} ${section.name}`);
+        lines.push('────────────────────────────────────────────────────────────');
+
+        for (const test of section.tests) {
+          const status = getStatus(test.id);
+          const note = (state.testNotes[test.id] || '').trim() || '-';
+          const shots = (state.testScreenshots[test.id] || []).length;
+          const padded = STATUS[status].label.toUpperCase().padEnd(12, ' ');
+
+          lines.push(`${STATUS[status].icon} [${padded}] ${test.name}`);
+          lines.push(`   ${test.details}`);
+          lines.push(`   📝 Примечания: ${note}`);
+          lines.push(`   📸 Скриншотов прикреплено: ${shots}`);
+        }
+      }
+
+      lines.push('');
+      lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      lines.push(`Отчёт сгенерирован: ${new Date().toLocaleString('ru-RU')}`);
+      lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+      return lines.join('\n');
+    }
+
+    function loadFromLocalStorage(silent) {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+          if (!silent) showToast('Сохранённые данные не найдены.');
+          return;
+        }
+
+        const parsed = JSON.parse(raw);
+        state.testStates = parsed.testStates || {};
+        state.testNotes = parsed.testNotes || {};
+        state.testScreenshots = parsed.testScreenshots || {};
+        state.projectName = parsed.projectName || '';
+        state.cameraModel = parsed.cameraModel || '';
+        state.firmwareVersion = parsed.firmwareVersion || '';
+        state.testerName = parsed.testerName || '';
+        state.testDate = parsed.testDate || state.testDate;
+        state.savedAt = parsed.savedAt || '';
+        state.sectionCollapsed = parsed.sectionCollapsed || {};
+
+        if (!silent) {
+          showToast(`Прогресс загружен${state.savedAt ? ` (${new Date(state.savedAt).toLocaleString('ru-RU')})` : ''}.`);
+          render();
+        }
+      } catch {
+        showToast('Ошибка чтения localStorage.');
+      }
+    }
+
+    function saveToLocalStorage() {
+      try {
+        const payload = {
+          testStates: state.testStates,
+          testNotes: state.testNotes,
+          testScreenshots: state.testScreenshots,
+          sectionCollapsed: state.sectionCollapsed,
+          projectName: state.projectName,
+          cameraModel: state.cameraModel,
+          firmwareVersion: state.firmwareVersion,
+          testerName: state.testerName,
+          testDate: state.testDate,
+          savedAt: new Date().toISOString()
+        };
+        state.savedAt = payload.savedAt;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      } catch {
+        showToast('Не удалось сохранить. Возможно, лимит localStorage превышен.');
+      }
+    }
+
+    function matchesSearch(test, query) {
+      if (!query) return true;
+      const haystack = [
+        test.name,
+        test.details,
+        state.testNotes[test.id] || ''
+      ].join(' ').toLowerCase();
+      return haystack.includes(query);
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function sanitizeFilePart(value) {
+      return String(value)
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9._-]+/g, '_')
+        .replace(/^_+|_+$/g, '') || 'report';
+    }
+
+    function autoResize(textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${Math.max(textarea.scrollHeight, 80)}px`;
+    }
+
+    function openModal(modal) {
+      modal.classList.add('show');
+      modal.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeModal(modal) {
+      modal.classList.remove('show');
+      modal.setAttribute('aria-hidden', 'true');
+      if (modal === els.imageModal) els.fullImage.src = '';
+    }
+
+    let toastTimer;
+    function showToast(message) {
+      els.toast.textContent = message;
+      els.toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => els.toast.classList.remove('show'), 2200);
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
