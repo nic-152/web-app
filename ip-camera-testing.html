@@ -89,6 +89,86 @@
       background: rgba(0, 212, 255, 0.1);
     }
 
+    .header-right {
+      display: grid;
+      gap: 8px;
+      justify-items: end;
+    }
+
+    .user-badge {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      color: var(--text-secondary);
+      font-size: 0.84rem;
+    }
+
+    .user-badge strong {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    .auth-gate {
+      max-width: 520px;
+      margin: 6vh auto 0;
+      padding: 18px;
+      border: 1px solid rgba(71, 85, 105, 0.55);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      background: linear-gradient(170deg, rgba(20, 27, 45, 0.95), rgba(16, 22, 39, 0.97));
+      display: grid;
+      gap: 12px;
+      animation: fadeIn 240ms ease;
+    }
+
+    .auth-title {
+      margin: 0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.2rem;
+      color: var(--accent-primary);
+    }
+
+    .auth-subtitle {
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .auth-tabs {
+      display: flex;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .auth-tab {
+      flex: 1;
+      border: 1px solid rgba(71, 85, 105, 0.75);
+      background: rgba(15, 23, 42, 0.8);
+      color: var(--text-secondary);
+      border-radius: var(--radius-sm);
+      min-height: 38px;
+      cursor: pointer;
+      font: inherit;
+    }
+
+    .auth-tab.active {
+      border-color: rgba(0, 212, 255, 0.65);
+      color: var(--accent-primary);
+      background: rgba(0, 212, 255, 0.1);
+    }
+
+    .auth-form {
+      display: grid;
+      gap: 10px;
+      padding: 8px 0 2px;
+    }
+
+    .auth-error {
+      min-height: 22px;
+      color: #fca5a5;
+      font-size: 0.85rem;
+    }
+
     .grid-2 {
       padding: 18px;
       display: grid;
@@ -128,6 +208,7 @@
     }
 
     input[type='text'],
+    input[type='password'],
     input[type='date'],
     textarea,
     .search input {
@@ -548,13 +629,42 @@
   </style>
 </head>
 <body>
-  <main class="app">
+  <section class="auth-gate" id="authGate">
+    <h2 class="auth-title">Авторизация</h2>
+    <p class="auth-subtitle">Доступ к тестовым данным только после входа в аккаунт.</p>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="loginTab" type="button">Вход</button>
+      <button class="auth-tab" id="registerTab" type="button">Регистрация</button>
+    </div>
+    <form class="auth-form" id="authForm">
+      <div class="field" id="authNameField">
+        <label for="authName">Имя</label>
+        <input id="authName" type="text" placeholder="Иван Иванов" />
+      </div>
+      <div class="field">
+        <label for="authEmail">Email</label>
+        <input id="authEmail" type="text" placeholder="name@example.com" required />
+      </div>
+      <div class="field">
+        <label for="authPassword">Пароль</label>
+        <input id="authPassword" type="password" placeholder="Минимум 8 символов" required />
+      </div>
+      <button class="btn primary" id="authSubmitBtn" type="submit">Войти</button>
+      <div class="auth-error" id="authError"></div>
+    </form>
+  </section>
+
+  <main class="app hidden" id="appRoot">
     <section class="surface header">
       <div>
         <h1 class="title">IP Camera Testing System</h1>
         <p class="subtitle">Командная система тестирования функционала IP-камер с автосохранением локально.</p>
       </div>
-      <div class="progress-badge" id="overallProgress">Прогресс: 0%</div>
+      <div class="header-right">
+        <div class="user-badge"><span>Пользователь:</span> <strong id="userBadge">-</strong></div>
+        <button class="btn" id="logoutBtn" type="button" title="Выйти из аккаунта">Выйти</button>
+        <div class="progress-badge" id="overallProgress">Прогресс: 0%</div>
+      </div>
     </section>
 
     <section class="surface grid-2">
@@ -631,6 +741,8 @@
 
   <script>
     const STORAGE_KEY = 'ipCameraTestData';
+    const AUTH_STORAGE_KEY = 'ipCameraAuth';
+    const API_BASE = `${window.location.origin}/api`;
     const STATUS = {
       pending: { icon: '○', label: 'Ожидает' },
       passed: { icon: '✓', label: 'Пройдено' },
@@ -809,10 +921,28 @@
       testerName: '',
       testDate: '',
       savedAt: '',
-      searchQuery: ''
+      searchQuery: '',
+      authMode: 'login',
+      auth: {
+        token: '',
+        user: null
+      }
     };
 
     const els = {
+      appRoot: document.getElementById('appRoot'),
+      authGate: document.getElementById('authGate'),
+      loginTab: document.getElementById('loginTab'),
+      registerTab: document.getElementById('registerTab'),
+      authForm: document.getElementById('authForm'),
+      authNameField: document.getElementById('authNameField'),
+      authName: document.getElementById('authName'),
+      authEmail: document.getElementById('authEmail'),
+      authPassword: document.getElementById('authPassword'),
+      authSubmitBtn: document.getElementById('authSubmitBtn'),
+      authError: document.getElementById('authError'),
+      userBadge: document.getElementById('userBadge'),
+      logoutBtn: document.getElementById('logoutBtn'),
       projectName: document.getElementById('projectName'),
       cameraModel: document.getElementById('cameraModel'),
       firmwareVersion: document.getElementById('firmwareVersion'),
@@ -838,16 +968,35 @@
       toast: document.getElementById('toast')
     };
 
-    function init() {
+    async function init() {
       const today = new Date().toISOString().slice(0, 10);
       state.testDate = today;
       els.testDate.value = today;
-      loadFromLocalStorage(true);
       bindGlobalEvents();
-      render();
+      setAuthMode('login');
+
+      const auth = loadAuthFromStorage();
+      if (auth) {
+        state.auth = auth;
+        const ok = await restoreSession();
+        if (ok) {
+          onAuthenticated();
+          return;
+        }
+      }
+
+      showAuthGate();
     }
 
     function bindGlobalEvents() {
+      els.loginTab.addEventListener('click', () => setAuthMode('login'));
+      els.registerTab.addEventListener('click', () => setAuthMode('register'));
+      els.authForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await submitAuth();
+      });
+      els.logoutBtn.addEventListener('click', logout);
+
       [
         ['projectName', 'projectName'],
         ['cameraModel', 'cameraModel'],
@@ -933,8 +1082,148 @@
       });
     }
 
+    function setAuthMode(mode) {
+      state.authMode = mode;
+      const isRegister = mode === 'register';
+      els.loginTab.classList.toggle('active', !isRegister);
+      els.registerTab.classList.toggle('active', isRegister);
+      els.authNameField.classList.toggle('hidden', !isRegister);
+      els.authSubmitBtn.textContent = isRegister ? 'Создать аккаунт' : 'Войти';
+      els.authError.textContent = '';
+    }
+
+    async function submitAuth() {
+      const name = els.authName.value.trim();
+      const email = els.authEmail.value.trim().toLowerCase();
+      const password = els.authPassword.value;
+      const isRegister = state.authMode === 'register';
+
+      if (isRegister && name.length < 2) {
+        els.authError.textContent = 'Имя должно быть не короче 2 символов.';
+        return;
+      }
+      if (!email.includes('@')) {
+        els.authError.textContent = 'Введите корректный email.';
+        return;
+      }
+      if (password.length < 8) {
+        els.authError.textContent = 'Пароль должен быть не короче 8 символов.';
+        return;
+      }
+
+      els.authSubmitBtn.disabled = true;
+      els.authError.textContent = 'Проверка...';
+
+      try {
+        const endpoint = isRegister ? '/auth/register' : '/auth/login';
+        const body = isRegister ? { name, email, password } : { email, password };
+        const response = await fetch(`${API_BASE}${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const payload = await response.json();
+
+        if (!response.ok) {
+          throw new Error(payload.error || 'Ошибка авторизации.');
+        }
+
+        state.auth = { token: payload.token, user: payload.user };
+        saveAuthToStorage();
+        els.authPassword.value = '';
+        onAuthenticated();
+        showToast('Вход выполнен.');
+      } catch (error) {
+        els.authError.textContent = error.message || 'Ошибка сети.';
+      } finally {
+        els.authSubmitBtn.disabled = false;
+        if (els.authError.textContent === 'Проверка...') els.authError.textContent = '';
+      }
+    }
+
+    async function restoreSession() {
+      try {
+        const response = await fetch(`${API_BASE}/auth/me`, {
+          headers: { Authorization: `Bearer ${state.auth.token}` }
+        });
+        const payload = await response.json();
+        if (!response.ok) return false;
+        state.auth.user = payload.user;
+        saveAuthToStorage();
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    function onAuthenticated() {
+      resetSessionState();
+      showApp();
+      loadFromLocalStorage(true);
+      render();
+    }
+
+    function showAuthGate() {
+      els.authGate.classList.remove('hidden');
+      els.appRoot.classList.add('hidden');
+    }
+
+    function showApp() {
+      els.authGate.classList.add('hidden');
+      els.appRoot.classList.remove('hidden');
+    }
+
+    function updateUserBadge() {
+      els.userBadge.textContent = state.auth.user?.email || '-';
+    }
+
+    function loadAuthFromStorage() {
+      try {
+        const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed?.token || !parsed?.user?.id) return null;
+        return parsed;
+      } catch {
+        return null;
+      }
+    }
+
+    function saveAuthToStorage() {
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(state.auth));
+    }
+
+    function clearAuthStorage() {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+    }
+
+    function logout() {
+      state.auth = { token: '', user: null };
+      clearAuthStorage();
+      resetSessionState();
+      els.authPassword.value = '';
+      showAuthGate();
+      showToast('Сессия завершена.');
+    }
+
+    function resetSessionState() {
+      state.testStates = {};
+      state.testNotes = {};
+      state.testScreenshots = {};
+      state.sectionCollapsed = {};
+      state.projectName = '';
+      state.cameraModel = '';
+      state.firmwareVersion = '';
+      state.testerName = '';
+      state.testDate = new Date().toISOString().slice(0, 10);
+      state.savedAt = '';
+      state.searchQuery = '';
+      els.searchInput.value = '';
+    }
+
     function render() {
       fillHeaderInputs();
+      updateUserBadge();
       renderTree();
       updateStats();
     }
@@ -1251,8 +1540,10 @@
     }
 
     function loadFromLocalStorage(silent) {
+      const storageKey = getStorageKey();
+      if (!storageKey) return;
       try {
-        const raw = localStorage.getItem(STORAGE_KEY);
+        const raw = localStorage.getItem(storageKey);
         if (!raw) {
           if (!silent) showToast('Сохранённые данные не найдены.');
           return;
@@ -1280,6 +1571,8 @@
     }
 
     function saveToLocalStorage() {
+      const storageKey = getStorageKey();
+      if (!storageKey) return;
       try {
         const payload = {
           testStates: state.testStates,
@@ -1294,10 +1587,15 @@
           savedAt: new Date().toISOString()
         };
         state.savedAt = payload.savedAt;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        localStorage.setItem(storageKey, JSON.stringify(payload));
       } catch {
         showToast('Не удалось сохранить. Возможно, лимит localStorage превышен.');
       }
+    }
+
+    function getStorageKey() {
+      const userId = state.auth.user?.id;
+      return userId ? `${STORAGE_KEY}:${userId}` : '';
     }
 
     function matchesSearch(test, query) {
@@ -1351,7 +1649,12 @@
       toastTimer = setTimeout(() => els.toast.classList.remove('show'), 2200);
     }
 
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', () => {
+      init().catch(() => {
+        showAuthGate();
+        showToast('Не удалось инициализировать приложение.');
+      });
+    });
   </script>
 </body>
 </html>
