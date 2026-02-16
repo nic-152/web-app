@@ -898,7 +898,10 @@
     </section>
 
     <section class="surface search">
-      <input id="searchInput" type="text" placeholder="Поиск по названию, деталям или примечаниям..." />
+      <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;">
+        <input id="searchInput" type="text" placeholder="Поиск по названию, деталям или примечаниям..." />
+        <button class="btn" id="addSectionBtn" type="button" title="Добавить новую категорию">+ Категория</button>
+      </div>
     </section>
 
     <section class="surface tree" id="testTree"></section>
@@ -937,7 +940,7 @@
       maybe: { icon: '?', label: 'Возможно' }
     };
 
-    const testData = [
+    const DEFAULT_TEST_DATA = [
       {
         id: 'base-settings',
         name: 'Основные настройки',
@@ -1119,7 +1122,8 @@
       activeProjectId: '',
       activeProjectRole: '',
       saveDebounceTimer: null,
-      theme: 'dark'
+      theme: 'dark',
+      testCatalog: []
     };
 
     const els = {
@@ -1151,6 +1155,7 @@
       testerName: document.getElementById('testerName'),
       testDate: document.getElementById('testDate'),
       searchInput: document.getElementById('searchInput'),
+      addSectionBtn: document.getElementById('addSectionBtn'),
       testTree: document.getElementById('testTree'),
       overallProgress: document.getElementById('overallProgress'),
       statPassed: document.getElementById('statPassed'),
@@ -1217,6 +1222,9 @@
       });
       els.projectSelect.addEventListener('change', async (e) => {
         await selectProject(e.target.value, true);
+      });
+      els.addSectionBtn.addEventListener('click', () => {
+        addSection();
       });
       els.membersList.addEventListener('change', async (e) => {
         const target = e.target;
@@ -1711,9 +1719,130 @@
       return state.activeProjectRole === 'owner' || state.activeProjectRole === 'editor';
     }
 
+    function addSection() {
+      if (!canEditProject()) return showToast('У вас режим просмотра проекта.');
+      const name = window.prompt('Название категории:', 'Новая категория');
+      if (!name || !name.trim()) return;
+      const icon = (window.prompt('Иконка (эмодзи):', '🧩') || '🧩').trim() || '🧩';
+      const id = generateSectionId(name.trim());
+      state.testCatalog.push({ id, name: name.trim(), icon, tests: [] });
+      saveToLocalStorage();
+      render();
+      showToast('Категория добавлена.');
+    }
+
+    function editSection(sectionId) {
+      if (!canEditProject()) return showToast('У вас режим просмотра проекта.');
+      const section = state.testCatalog.find((s) => s.id === sectionId);
+      if (!section) return;
+      const name = window.prompt('Новое название категории:', section.name);
+      if (!name || !name.trim()) return;
+      const icon = window.prompt('Иконка (эмодзи):', section.icon || '🧩');
+      section.name = name.trim();
+      section.icon = (icon || section.icon || '🧩').trim() || '🧩';
+      saveToLocalStorage();
+      render();
+      showToast('Категория обновлена.');
+    }
+
+    function deleteSection(sectionId) {
+      if (!canEditProject()) return showToast('У вас режим просмотра проекта.');
+      const section = state.testCatalog.find((s) => s.id === sectionId);
+      if (!section) return;
+      const ok = window.confirm(`Удалить категорию "${section.name}" и все её тесты?`);
+      if (!ok) return;
+      section.tests.forEach((test) => cleanupTestData(test.id));
+      state.testCatalog = state.testCatalog.filter((s) => s.id !== sectionId);
+      delete state.sectionCollapsed[sectionId];
+      saveToLocalStorage();
+      render();
+      showToast('Категория удалена.');
+    }
+
+    function addTest(sectionId) {
+      if (!canEditProject()) return showToast('У вас режим просмотра проекта.');
+      const section = state.testCatalog.find((s) => s.id === sectionId);
+      if (!section) return;
+      const name = window.prompt('Название теста:', 'Новый тест');
+      if (!name || !name.trim()) return;
+      const details = window.prompt('Детали теста:', 'Описание проверки...') || '';
+      const id = generateTestId(name.trim());
+      section.tests.push({ id, name: name.trim(), details: details.trim() });
+      saveToLocalStorage();
+      render();
+      showToast('Тест добавлен.');
+    }
+
+    function editTest(testId) {
+      if (!canEditProject()) return showToast('У вас режим просмотра проекта.');
+      const result = findTest(testId);
+      if (!result) return;
+      const { test } = result;
+      const name = window.prompt('Название теста:', test.name);
+      if (!name || !name.trim()) return;
+      const details = window.prompt('Детали теста:', test.details || '') || '';
+      test.name = name.trim();
+      test.details = details.trim();
+      saveToLocalStorage();
+      render();
+      showToast('Тест обновлён.');
+    }
+
+    function deleteTest(testId) {
+      if (!canEditProject()) return showToast('У вас режим просмотра проекта.');
+      const result = findTest(testId);
+      if (!result) return;
+      const { section, index, test } = result;
+      const ok = window.confirm(`Удалить тест "${test.name}"?`);
+      if (!ok) return;
+      section.tests.splice(index, 1);
+      cleanupTestData(testId);
+      saveToLocalStorage();
+      render();
+      showToast('Тест удалён.');
+    }
+
+    function findTest(testId) {
+      for (const section of state.testCatalog) {
+        const index = section.tests.findIndex((t) => t.id === testId);
+        if (index !== -1) return { section, index, test: section.tests[index] };
+      }
+      return null;
+    }
+
+    function cleanupTestData(testId) {
+      delete state.testStates[testId];
+      delete state.testNotes[testId];
+      delete state.testScreenshots[testId];
+    }
+
+    function generateSectionId(name) {
+      const existing = new Set(state.testCatalog.map((s) => s.id));
+      return generateUniqueId('section', name, existing);
+    }
+
+    function generateTestId(name) {
+      const existing = new Set(state.testCatalog.flatMap((s) => s.tests.map((t) => t.id)));
+      return generateUniqueId('test', name, existing);
+    }
+
+    function generateUniqueId(prefix, name, existing) {
+      const base = slugify(name) || `${prefix}-${Date.now()}`;
+      let candidate = base;
+      let idx = 2;
+      while (existing.has(candidate)) {
+        candidate = `${base}-${idx}`;
+        idx += 1;
+      }
+      return candidate;
+    }
+
     function applySessionPayload(payload) {
       resetSessionState();
       if (!payload || typeof payload !== 'object') return;
+      state.testCatalog = Array.isArray(payload.testCatalog) && payload.testCatalog.length
+        ? cloneCatalog(payload.testCatalog)
+        : cloneCatalog(DEFAULT_TEST_DATA);
       state.testStates = payload.testStates || {};
       state.testNotes = payload.testNotes || {};
       state.testScreenshots = payload.testScreenshots || {};
@@ -1728,6 +1857,7 @@
 
     function buildSessionPayload() {
       return {
+        testCatalog: state.testCatalog,
         testStates: state.testStates,
         testNotes: state.testNotes,
         testScreenshots: state.testScreenshots,
@@ -1746,6 +1876,7 @@
       [els.projectName, els.cameraModel, els.firmwareVersion, els.testerName, els.testDate, els.saveBtn, els.resetBtn].forEach((el) => {
         el.disabled = !editable;
       });
+      els.addSectionBtn.disabled = !editable;
       els.inviteEmail.disabled = state.activeProjectRole !== 'owner';
       els.inviteRole.disabled = state.activeProjectRole !== 'owner';
       els.inviteBtn.disabled = state.activeProjectRole !== 'owner';
@@ -1791,6 +1922,7 @@
       state.testNotes = {};
       state.testScreenshots = {};
       state.sectionCollapsed = {};
+      state.testCatalog = cloneCatalog(DEFAULT_TEST_DATA);
       state.projectName = '';
       state.cameraModel = '';
       state.firmwareVersion = '';
@@ -1822,7 +1954,7 @@
       const query = state.searchQuery;
       const html = [];
 
-      for (const section of testData) {
+      for (const section of state.testCatalog) {
         const tests = section.tests.filter((test) => matchesSearch(test, query));
         if (query && tests.length === 0) continue;
 
@@ -1836,7 +1968,12 @@
                 <span>${section.icon}</span>
                 <span class="section-title">${escapeHtml(section.name)}</span>
               </span>
-              <span class="section-progress">${done}/${tests.length}</span>
+              <span class="section-progress" style="display:flex;align-items:center;gap:8px;">
+                <span>${done}/${tests.length}</span>
+                ${canEditProject() ? `<button class="btn" type="button" data-add-test="${section.id}" title="Добавить тест" style="padding:4px 8px;min-height:30px;">+ Тест</button>` : ''}
+                ${canEditProject() ? `<button class="btn" type="button" data-edit-section="${section.id}" title="Редактировать категорию" style="padding:4px 8px;min-height:30px;">✎</button>` : ''}
+                ${canEditProject() ? `<button class="btn" type="button" data-delete-section="${section.id}" title="Удалить категорию" style="padding:4px 8px;min-height:30px;">🗑</button>` : ''}
+              </span>
             </button>
             <div class="tests ${collapsed ? 'hidden' : ''}" id="section-${section.id}">
               ${tests.map((test) => renderTestItem(test)).join('')}
@@ -1848,7 +1985,8 @@
       els.testTree.innerHTML = html.join('') || '<div class="panel">Ничего не найдено по текущему запросу.</div>';
 
       els.testTree.querySelectorAll('[data-section-toggle]').forEach((btn) => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', (e) => {
+          if (e.target.closest('[data-add-test],[data-edit-section],[data-delete-section]')) return;
           const id = btn.getAttribute('data-section-toggle');
           state.sectionCollapsed[id] = !state.sectionCollapsed[id];
           renderTree();
@@ -1882,6 +2020,8 @@
               <p class="test-details">${escapeHtml(test.details)}</p>
             </div>
             <div class="status-buttons">
+              ${canEditProject() ? `<button class="btn" type="button" data-edit-test="${test.id}" title="Редактировать тест" style="padding:4px 8px;min-height:36px;">✎</button>` : ''}
+              ${canEditProject() ? `<button class="btn" type="button" data-delete-test="${test.id}" title="Удалить тест" style="padding:4px 8px;min-height:36px;">🗑</button>` : ''}
               ${statusBtn('passed', '✓', 'Пройдено')}
               ${statusBtn('failed', '✗', 'Не пройдено')}
               ${statusBtn('maybe', '?', 'Возможно')}
@@ -1930,6 +2070,44 @@
         btn.addEventListener('click', () => {
           const [testId, status] = btn.getAttribute('data-status-btn').split(':');
           setStatus(testId, status);
+        });
+      });
+
+      els.testTree.querySelectorAll('[data-add-test]').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const sectionId = btn.getAttribute('data-add-test');
+          addTest(sectionId);
+        });
+      });
+
+      els.testTree.querySelectorAll('[data-edit-section]').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const sectionId = btn.getAttribute('data-edit-section');
+          editSection(sectionId);
+        });
+      });
+
+      els.testTree.querySelectorAll('[data-delete-section]').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const sectionId = btn.getAttribute('data-delete-section');
+          deleteSection(sectionId);
+        });
+      });
+
+      els.testTree.querySelectorAll('[data-edit-test]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const testId = btn.getAttribute('data-edit-test');
+          editTest(testId);
+        });
+      });
+
+      els.testTree.querySelectorAll('[data-delete-test]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const testId = btn.getAttribute('data-delete-test');
+          deleteTest(testId);
         });
       });
 
@@ -2052,7 +2230,7 @@
     }
 
     function updateStats() {
-      const allTests = testData.flatMap((section) => section.tests);
+      const allTests = state.testCatalog.flatMap((section) => section.tests);
       let passed = 0;
       let failed = 0;
       let maybe = 0;
@@ -2077,7 +2255,7 @@
     }
 
     function generateReport() {
-      const allTests = testData.flatMap((section) => section.tests);
+      const allTests = state.testCatalog.flatMap((section) => section.tests);
       const passed = allTests.filter((t) => getStatus(t.id) === 'passed').length;
       const failed = allTests.filter((t) => getStatus(t.id) === 'failed').length;
       const maybe = allTests.filter((t) => getStatus(t.id) === 'maybe').length;
@@ -2111,7 +2289,7 @@
         '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
       ];
 
-      for (const section of testData) {
+      for (const section of state.testCatalog) {
         lines.push('');
         lines.push(`${section.icon} ${section.name}`);
         lines.push('────────────────────────────────────────────────────────────');
@@ -2148,6 +2326,9 @@
         }
 
         const parsed = JSON.parse(raw);
+        state.testCatalog = Array.isArray(parsed.testCatalog) && parsed.testCatalog.length
+          ? cloneCatalog(parsed.testCatalog)
+          : cloneCatalog(DEFAULT_TEST_DATA);
         state.testStates = parsed.testStates || {};
         state.testNotes = parsed.testNotes || {};
         state.testScreenshots = parsed.testScreenshots || {};
@@ -2211,6 +2392,19 @@
         .toLowerCase()
         .replace(/[^a-z0-9._-]+/g, '_')
         .replace(/^_+|_+$/g, '') || 'report';
+    }
+
+    function slugify(value) {
+      return String(value)
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9а-яё]+/gi, '-')
+        .replace(/^-+|-+$/g, '')
+        .replace(/-+/g, '-');
+    }
+
+    function cloneCatalog(catalog) {
+      return JSON.parse(JSON.stringify(catalog));
     }
 
     function autoResize(textarea) {
