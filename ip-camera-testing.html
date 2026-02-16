@@ -9,23 +9,67 @@
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg-primary: #0a0e1a;
-      --bg-secondary: #141b2d;
-      --bg-tertiary: #1e2740;
-      --accent-primary: #00d4ff;
-      --accent-secondary: #3b82f6;
+      --accent-primary: #34d399;
+      --accent-secondary: #22c55e;
       --accent-success: #10b981;
       --accent-warning: #f59e0b;
       --accent-error: #ef4444;
-      --text-primary: #e2e8f0;
-      --text-secondary: #94a3b8;
-      --text-muted: #64748b;
-      --border-color: #334155;
       --pending: #6b7280;
-      --shadow: 0 14px 32px rgba(0, 0, 0, 0.35);
-      --radius-lg: 16px;
-      --radius-md: 12px;
-      --radius-sm: 9px;
+
+      --text-primary: #e8eef8;
+      --text-secondary: #9fb0c9;
+      --text-muted: #7486a3;
+
+      --bg-gradient-start: #050910;
+      --bg-gradient-mid: #0c1828;
+      --bg-gradient-end: #10233a;
+      --bg-blob-1: rgba(56, 189, 248, 0.22);
+      --bg-blob-2: rgba(52, 211, 153, 0.16);
+
+      --surface-bg: linear-gradient(150deg, rgba(12, 22, 38, 0.92), rgba(9, 16, 30, 0.95));
+      --panel-bg: rgba(9, 18, 33, 0.66);
+      --input-bg: rgba(8, 15, 29, 0.78);
+      --item-bg: rgba(7, 14, 27, 0.58);
+      --item-strong-bg: rgba(11, 21, 36, 0.88);
+
+      --border-color: rgba(111, 141, 177, 0.35);
+      --border-strong: rgba(130, 164, 203, 0.5);
+      --ring-color: rgba(52, 211, 153, 0.4);
+      --shadow: 0 22px 50px rgba(0, 0, 0, 0.35);
+
+      --radius-lg: 20px;
+      --radius-md: 14px;
+      --radius-sm: 10px;
+    }
+
+    :root[data-theme='light'] {
+      --accent-primary: #0f766e;
+      --accent-secondary: #0ea5e9;
+      --accent-success: #059669;
+      --accent-warning: #d97706;
+      --accent-error: #dc2626;
+      --pending: #6b7280;
+
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #64748b;
+
+      --bg-gradient-start: #eef4ff;
+      --bg-gradient-mid: #f7fdfb;
+      --bg-gradient-end: #ecfeff;
+      --bg-blob-1: rgba(14, 165, 233, 0.16);
+      --bg-blob-2: rgba(16, 185, 129, 0.14);
+
+      --surface-bg: linear-gradient(155deg, rgba(255, 255, 255, 0.92), rgba(241, 248, 255, 0.9));
+      --panel-bg: rgba(255, 255, 255, 0.72);
+      --input-bg: rgba(255, 255, 255, 0.93);
+      --item-bg: rgba(248, 251, 255, 0.9);
+      --item-strong-bg: rgba(244, 249, 255, 0.95);
+
+      --border-color: rgba(148, 163, 184, 0.45);
+      --border-strong: rgba(100, 116, 139, 0.42);
+      --ring-color: rgba(14, 165, 233, 0.32);
+      --shadow: 0 22px 44px rgba(15, 23, 42, 0.12);
     }
 
     * { box-sizing: border-box; }
@@ -36,10 +80,11 @@
       font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
       color: var(--text-primary);
       background:
-        radial-gradient(circle at 8% 8%, rgba(0, 212, 255, 0.16), transparent 26%),
-        radial-gradient(circle at 92% 18%, rgba(16, 185, 129, 0.11), transparent 30%),
-        linear-gradient(160deg, #070b17, #0f172a 52%, #121f38);
+        radial-gradient(circle at 8% 8%, var(--bg-blob-1), transparent 28%),
+        radial-gradient(circle at 92% 18%, var(--bg-blob-2), transparent 32%),
+        linear-gradient(160deg, var(--bg-gradient-start), var(--bg-gradient-mid) 52%, var(--bg-gradient-end));
       padding: 22px;
+      transition: background 240ms ease, color 180ms ease;
     }
 
     .app {
@@ -51,10 +96,11 @@
     }
 
     .surface {
-      background: linear-gradient(170deg, rgba(20, 27, 45, 0.95), rgba(16, 22, 39, 0.97));
-      border: 1px solid rgba(71, 85, 105, 0.55);
+      background: var(--surface-bg);
+      border: 1px solid var(--border-color);
       border-radius: var(--radius-lg);
       box-shadow: var(--shadow);
+      backdrop-filter: blur(4px);
     }
 
     .header {
@@ -79,20 +125,50 @@
     }
 
     .progress-badge {
-      border: 1px solid rgba(0, 212, 255, 0.4);
+      border: 1px solid var(--border-strong);
       border-radius: 999px;
       padding: 8px 12px;
       font-family: 'JetBrains Mono', monospace;
       color: var(--accent-primary);
       white-space: nowrap;
       font-size: 0.9rem;
-      background: rgba(0, 212, 255, 0.1);
+      background: color-mix(in srgb, var(--accent-primary) 14%, transparent);
     }
 
     .header-right {
       display: grid;
       gap: 8px;
       justify-items: end;
+    }
+
+    .theme-switch {
+      display: inline-flex;
+      gap: 6px;
+      border: 1px solid var(--border-strong);
+      border-radius: 999px;
+      padding: 4px;
+      background: var(--item-bg);
+    }
+
+    .theme-chip {
+      border: 0;
+      border-radius: 999px;
+      min-height: 30px;
+      padding: 0 12px;
+      font: inherit;
+      color: var(--text-secondary);
+      background: transparent;
+      cursor: pointer;
+      font-size: 0.83rem;
+      transition: background 150ms ease, color 150ms ease, transform 150ms ease;
+    }
+
+    .theme-chip:hover { transform: translateY(-1px); }
+
+    .theme-chip.active {
+      color: var(--text-primary);
+      background: color-mix(in srgb, var(--accent-primary) 20%, transparent);
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-primary) 50%, transparent);
     }
 
     .user-badge {
@@ -112,10 +188,10 @@
       max-width: 520px;
       margin: 6vh auto 0;
       padding: 18px;
-      border: 1px solid rgba(71, 85, 105, 0.55);
+      border: 1px solid var(--border-color);
       border-radius: var(--radius-lg);
       box-shadow: var(--shadow);
-      background: linear-gradient(170deg, rgba(20, 27, 45, 0.95), rgba(16, 22, 39, 0.97));
+      background: var(--surface-bg);
       display: grid;
       gap: 12px;
       animation: fadeIn 240ms ease;
@@ -142,8 +218,8 @@
 
     .auth-tab {
       flex: 1;
-      border: 1px solid rgba(71, 85, 105, 0.75);
-      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border-strong);
+      background: var(--item-strong-bg);
       color: var(--text-secondary);
       border-radius: var(--radius-sm);
       min-height: 38px;
@@ -152,9 +228,9 @@
     }
 
     .auth-tab.active {
-      border-color: rgba(0, 212, 255, 0.65);
+      border-color: color-mix(in srgb, var(--accent-primary) 60%, transparent);
       color: var(--accent-primary);
-      background: rgba(0, 212, 255, 0.1);
+      background: color-mix(in srgb, var(--accent-primary) 16%, transparent);
     }
 
     .auth-form {
@@ -196,9 +272,9 @@
     }
 
     .members-list {
-      border: 1px solid rgba(71, 85, 105, 0.5);
+      border: 1px solid var(--border-color);
       border-radius: var(--radius-sm);
-      background: rgba(2, 6, 23, 0.35);
+      background: var(--item-bg);
       padding: 8px;
       display: grid;
       gap: 6px;
@@ -211,9 +287,9 @@
       grid-template-columns: 1fr 120px auto;
       gap: 8px;
       align-items: center;
-      border: 1px solid rgba(71, 85, 105, 0.45);
+      border: 1px solid var(--border-color);
       border-radius: 8px;
-      background: rgba(15, 23, 42, 0.55);
+      background: var(--item-strong-bg);
       padding: 6px 8px;
     }
 
@@ -253,8 +329,8 @@
     }
 
     .panel {
-      background: rgba(15, 23, 42, 0.62);
-      border: 1px solid rgba(71, 85, 105, 0.5);
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
       border-radius: var(--radius-md);
       padding: 14px;
     }
@@ -292,7 +368,7 @@
       width: 100%;
       border: 1px solid var(--border-color);
       border-radius: var(--radius-sm);
-      background: rgba(15, 23, 42, 0.78);
+      background: var(--input-bg);
       color: var(--text-primary);
       padding: 10px 12px;
       font: inherit;
@@ -303,8 +379,8 @@
     textarea:focus,
     .search input:focus {
       outline: none;
-      border-color: rgba(0, 212, 255, 0.75);
-      box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.2);
+      border-color: color-mix(in srgb, var(--accent-primary) 74%, transparent);
+      box-shadow: 0 0 0 3px var(--ring-color);
     }
 
     .stats-grid {
@@ -316,8 +392,8 @@
 
     .stat {
       border-radius: var(--radius-sm);
-      border: 1px solid rgba(71, 85, 105, 0.6);
-      background: rgba(2, 6, 23, 0.45);
+      border: 1px solid var(--border-color);
+      background: var(--item-bg);
       padding: 10px;
       min-height: 72px;
       display: grid;
@@ -351,8 +427,8 @@
     }
 
     .btn {
-      border: 1px solid rgba(71, 85, 105, 0.7);
-      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--border-strong);
+      background: var(--item-strong-bg);
       color: var(--text-primary);
       border-radius: var(--radius-sm);
       padding: 10px 12px;
@@ -364,13 +440,13 @@
 
     .btn:hover {
       transform: translateY(-1px);
-      border-color: rgba(0, 212, 255, 0.6);
-      background: rgba(30, 41, 59, 0.95);
+      border-color: color-mix(in srgb, var(--accent-primary) 66%, transparent);
+      background: color-mix(in srgb, var(--item-strong-bg) 78%, var(--accent-primary) 22%);
     }
 
     .btn.primary {
-      background: linear-gradient(160deg, rgba(0, 212, 255, 0.2), rgba(59, 130, 246, 0.16));
-      border-color: rgba(0, 212, 255, 0.62);
+      background: linear-gradient(160deg, color-mix(in srgb, var(--accent-primary) 28%, transparent), color-mix(in srgb, var(--accent-secondary) 22%, transparent));
+      border-color: color-mix(in srgb, var(--accent-primary) 64%, transparent);
     }
 
     .search {
@@ -386,16 +462,16 @@
     }
 
     .section {
-      border: 1px solid rgba(71, 85, 105, 0.6);
+      border: 1px solid var(--border-color);
       border-radius: var(--radius-md);
-      background: rgba(15, 23, 42, 0.66);
+      background: var(--panel-bg);
       overflow: hidden;
     }
 
     .section-header {
       width: 100%;
       border: 0;
-      background: linear-gradient(160deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.88));
+      background: linear-gradient(160deg, color-mix(in srgb, var(--item-strong-bg) 80%, transparent), color-mix(in srgb, var(--panel-bg) 88%, transparent));
       color: var(--text-primary);
       padding: 12px 14px;
       text-align: left;
@@ -408,7 +484,7 @@
       min-height: 42px;
     }
 
-    .section-header:hover { background: rgba(30, 41, 59, 0.95); }
+    .section-header:hover { background: color-mix(in srgb, var(--item-strong-bg) 74%, var(--accent-primary) 26%); }
 
     .section-left {
       display: flex;
@@ -439,9 +515,9 @@
     }
 
     .test-item {
-      border: 1px solid rgba(71, 85, 105, 0.52);
+      border: 1px solid var(--border-color);
       border-radius: var(--radius-sm);
-      background: rgba(2, 6, 23, 0.5);
+      background: var(--item-bg);
       padding: 12px;
       display: grid;
       gap: 10px;
@@ -477,8 +553,8 @@
       width: 36px;
       height: 36px;
       border-radius: 10px;
-      border: 1px solid rgba(71, 85, 105, 0.72);
-      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid var(--border-strong);
+      background: var(--item-strong-bg);
       color: var(--text-secondary);
       cursor: pointer;
       font-size: 1rem;
@@ -524,10 +600,10 @@
     }
 
     .uploader {
-      border: 1px dashed rgba(71, 85, 105, 0.9);
+      border: 1px dashed var(--border-strong);
       border-radius: var(--radius-sm);
       padding: 10px;
-      background: rgba(15, 23, 42, 0.6);
+      background: var(--item-bg);
       display: flex;
       gap: 8px;
       align-items: center;
@@ -537,8 +613,8 @@
     }
 
     .uploader.drag {
-      border-color: rgba(0, 212, 255, 0.85);
-      background: rgba(0, 212, 255, 0.12);
+      border-color: color-mix(in srgb, var(--accent-primary) 80%, transparent);
+      background: color-mix(in srgb, var(--accent-primary) 16%, transparent);
     }
 
     .upload-text {
@@ -556,9 +632,9 @@
       position: relative;
       border-radius: 8px;
       overflow: hidden;
-      background: rgba(15, 23, 42, 0.8);
+      background: var(--item-strong-bg);
       aspect-ratio: 4 / 3;
-      border: 1px solid rgba(71, 85, 105, 0.72);
+      border: 1px solid var(--border-color);
     }
 
     .shot img {
@@ -603,8 +679,8 @@
       max-height: 90vh;
       overflow: auto;
       border-radius: var(--radius-lg);
-      border: 1px solid rgba(71, 85, 105, 0.8);
-      background: linear-gradient(170deg, rgba(20, 27, 45, 0.98), rgba(12, 18, 33, 0.98));
+      border: 1px solid var(--border-strong);
+      background: var(--surface-bg);
       box-shadow: var(--shadow);
       padding: 16px;
       position: relative;
@@ -618,7 +694,7 @@
       height: 34px;
       border: 0;
       border-radius: 8px;
-      background: rgba(15, 23, 42, 0.9);
+      background: var(--item-strong-bg);
       color: var(--text-primary);
       cursor: pointer;
       font-size: 1.2rem;
@@ -646,7 +722,7 @@
     .image-modal-content img {
       width: 100%;
       border-radius: var(--radius-sm);
-      border: 1px solid rgba(71, 85, 105, 0.8);
+      border: 1px solid var(--border-color);
       display: block;
     }
 
@@ -655,8 +731,8 @@
       left: 50%;
       bottom: 20px;
       transform: translateX(-50%) translateY(20px);
-      background: rgba(15, 23, 42, 0.95);
-      border: 1px solid rgba(71, 85, 105, 0.8);
+      background: var(--item-strong-bg);
+      border: 1px solid var(--border-strong);
       color: var(--text-primary);
       border-radius: 999px;
       padding: 8px 14px;
@@ -712,6 +788,10 @@
   <section class="auth-gate" id="authGate">
     <h2 class="auth-title">Авторизация</h2>
     <p class="auth-subtitle">Доступ к тестовым данным только после входа в аккаунт.</p>
+    <div class="theme-switch" aria-label="Переключение темы">
+      <button class="theme-chip" type="button" data-theme-set="light">☀ День</button>
+      <button class="theme-chip" type="button" data-theme-set="dark">🌙 Ночь</button>
+    </div>
     <div class="auth-tabs">
       <button class="auth-tab active" id="loginTab" type="button">Вход</button>
       <button class="auth-tab" id="registerTab" type="button">Регистрация</button>
@@ -741,6 +821,10 @@
         <p class="subtitle">Командная система тестирования функционала IP-камер с автосохранением локально.</p>
       </div>
       <div class="header-right">
+        <div class="theme-switch" aria-label="Переключение темы">
+          <button class="theme-chip" type="button" data-theme-set="light">☀ День</button>
+          <button class="theme-chip" type="button" data-theme-set="dark">🌙 Ночь</button>
+        </div>
         <div class="user-badge"><span>Пользователь:</span> <strong id="userBadge">-</strong></div>
         <button class="btn" id="logoutBtn" type="button" title="Выйти из аккаунта">Выйти</button>
         <div class="progress-badge" id="overallProgress">Прогресс: 0%</div>
@@ -844,6 +928,7 @@
   <script>
     const STORAGE_KEY = 'ipCameraTestData';
     const AUTH_STORAGE_KEY = 'ipCameraAuth';
+    const THEME_STORAGE_KEY = 'ipCameraTheme';
     const API_BASE = `${window.location.origin}/api`;
     const STATUS = {
       pending: { icon: '○', label: 'Ожидает' },
@@ -1033,7 +1118,8 @@
       projectMembers: [],
       activeProjectId: '',
       activeProjectRole: '',
-      saveDebounceTimer: null
+      saveDebounceTimer: null,
+      theme: 'dark'
     };
 
     const els = {
@@ -1088,6 +1174,7 @@
       const today = new Date().toISOString().slice(0, 10);
       state.testDate = today;
       els.testDate.value = today;
+      initTheme();
       bindGlobalEvents();
       setAuthMode('login');
 
@@ -1105,6 +1192,13 @@
     }
 
     function bindGlobalEvents() {
+      document.querySelectorAll('[data-theme-set]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const theme = btn.getAttribute('data-theme-set');
+          if (!theme) return;
+          setTheme(theme);
+        });
+      });
       els.loginTab.addEventListener('click', () => setAuthMode('login'));
       els.registerTab.addEventListener('click', () => setAuthMode('register'));
       els.authForm.addEventListener('submit', async (e) => {
@@ -1238,6 +1332,30 @@
       els.authNameField.classList.toggle('hidden', !isRegister);
       els.authSubmitBtn.textContent = isRegister ? 'Создать аккаунт' : 'Войти';
       els.authError.textContent = '';
+    }
+
+    function initTheme() {
+      const stored = localStorage.getItem(THEME_STORAGE_KEY);
+      if (stored === 'light' || stored === 'dark') {
+        state.theme = stored;
+      } else {
+        state.theme = 'dark';
+      }
+      applyTheme();
+    }
+
+    function setTheme(theme) {
+      if (theme !== 'light' && theme !== 'dark') return;
+      state.theme = theme;
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+      applyTheme();
+    }
+
+    function applyTheme() {
+      document.documentElement.setAttribute('data-theme', state.theme);
+      document.querySelectorAll('[data-theme-set]').forEach((btn) => {
+        btn.classList.toggle('active', btn.getAttribute('data-theme-set') === state.theme);
+      });
     }
 
     async function submitAuth() {
