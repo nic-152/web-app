@@ -169,6 +169,32 @@
       font-size: 0.85rem;
     }
 
+    .project-tools {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .project-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .project-row-3 {
+      display: grid;
+      grid-template-columns: 1fr 140px auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .project-role {
+      color: var(--text-secondary);
+      font-size: 0.84rem;
+      min-height: 20px;
+    }
+
     .grid-2 {
       padding: 18px;
       display: grid;
@@ -210,6 +236,7 @@
     input[type='text'],
     input[type='password'],
     input[type='date'],
+    select,
     textarea,
     .search input {
       width: 100%;
@@ -620,6 +647,8 @@
       .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .screens { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .test-top { flex-direction: column; }
+      .project-row,
+      .project-row-3 { grid-template-columns: 1fr; }
     }
 
     @keyframes fadeIn {
@@ -702,10 +731,29 @@
           <article class="stat"><div class="name">? Возможно</div><div class="value maybe" id="statMaybe">0</div></article>
           <article class="stat"><div class="name">○ Ожидает</div><div class="value pending" id="statPending">0</div></article>
         </div>
+        <div class="project-tools">
+          <div class="project-row">
+            <select id="projectSelect" title="Выбор проекта"></select>
+            <button class="btn" id="refreshProjectsBtn" type="button" title="Обновить список проектов">Обновить</button>
+          </div>
+          <div class="project-row">
+            <input id="newProjectName" type="text" placeholder="Название нового проекта" />
+            <button class="btn" id="createProjectBtn" type="button" title="Создать проект">Создать</button>
+          </div>
+          <div class="project-row-3">
+            <input id="inviteEmail" type="text" placeholder="email участника" />
+            <select id="inviteRole" title="Роль доступа">
+              <option value="editor">Editor</option>
+              <option value="viewer">Viewer</option>
+            </select>
+            <button class="btn" id="inviteBtn" type="button" title="Выдать доступ к проекту">Выдать доступ</button>
+          </div>
+          <div class="project-role" id="projectRoleLabel">Проект не выбран.</div>
+        </div>
         <div class="actions">
           <button class="btn primary" id="exportBtn" title="Сформировать и открыть отчёт">📊 Экспорт результатов</button>
-          <button class="btn" id="saveBtn" title="Сохранить данные в localStorage">💾 Сохранить прогресс</button>
-          <button class="btn" id="loadBtn" title="Загрузить последнюю сохранённую сессию">📂 Загрузить прогресс</button>
+          <button class="btn" id="saveBtn" title="Сохранить данные проекта">💾 Сохранить прогресс</button>
+          <button class="btn" id="loadBtn" title="Загрузить данные текущего проекта">📂 Загрузить прогресс</button>
           <button class="btn" id="resetBtn" title="Очистить статусы, заметки и скриншоты">🔄 Сбросить все</button>
         </div>
       </div>
@@ -926,7 +974,11 @@
       auth: {
         token: '',
         user: null
-      }
+      },
+      projects: [],
+      activeProjectId: '',
+      activeProjectRole: '',
+      saveDebounceTimer: null
     };
 
     const els = {
@@ -943,6 +995,14 @@
       authError: document.getElementById('authError'),
       userBadge: document.getElementById('userBadge'),
       logoutBtn: document.getElementById('logoutBtn'),
+      projectSelect: document.getElementById('projectSelect'),
+      refreshProjectsBtn: document.getElementById('refreshProjectsBtn'),
+      newProjectName: document.getElementById('newProjectName'),
+      createProjectBtn: document.getElementById('createProjectBtn'),
+      inviteEmail: document.getElementById('inviteEmail'),
+      inviteRole: document.getElementById('inviteRole'),
+      inviteBtn: document.getElementById('inviteBtn'),
+      projectRoleLabel: document.getElementById('projectRoleLabel'),
       projectName: document.getElementById('projectName'),
       cameraModel: document.getElementById('cameraModel'),
       firmwareVersion: document.getElementById('firmwareVersion'),
@@ -996,6 +1056,18 @@
         await submitAuth();
       });
       els.logoutBtn.addEventListener('click', logout);
+      els.refreshProjectsBtn.addEventListener('click', async () => {
+        await loadProjects(true);
+      });
+      els.createProjectBtn.addEventListener('click', async () => {
+        await createProject();
+      });
+      els.inviteBtn.addEventListener('click', async () => {
+        await inviteToProject();
+      });
+      els.projectSelect.addEventListener('change', async (e) => {
+        await selectProject(e.target.value, true);
+      });
 
       [
         ['projectName', 'projectName'],
@@ -1022,14 +1094,18 @@
 
       els.saveBtn.addEventListener('click', () => {
         saveToLocalStorage();
-        showToast('Прогресс сохранён.');
+        void saveProjectSession(true);
       });
 
       els.loadBtn.addEventListener('click', () => {
-        loadFromLocalStorage(false);
+        void loadProjectSession(false);
       });
 
       els.resetBtn.addEventListener('click', () => {
+        if (!canEditProject()) {
+          showToast('У вас режим просмотра проекта.');
+          return;
+        }
         const ok = window.confirm('Сбросить все статусы, примечания и скриншоты?');
         if (!ok) return;
         state.testStates = {};
@@ -1131,7 +1207,7 @@
         state.auth = { token: payload.token, user: payload.user };
         saveAuthToStorage();
         els.authPassword.value = '';
-        onAuthenticated();
+        await onAuthenticated();
         showToast('Вход выполнен.');
       } catch (error) {
         els.authError.textContent = error.message || 'Ошибка сети.';
@@ -1156,10 +1232,10 @@
       }
     }
 
-    function onAuthenticated() {
+    async function onAuthenticated() {
       resetSessionState();
       showApp();
-      loadFromLocalStorage(true);
+      await loadProjects(false);
       render();
     }
 
@@ -1175,6 +1251,202 @@
 
     function updateUserBadge() {
       els.userBadge.textContent = state.auth.user?.email || '-';
+    }
+
+    async function apiFetch(path, options = {}) {
+      const response = await fetch(`${API_BASE}${path}`, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${state.auth.token}`,
+          ...(options.headers || {})
+        }
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'Ошибка API.');
+      return payload;
+    }
+
+    async function loadProjects(showFeedback) {
+      try {
+        const payload = await apiFetch('/projects');
+        state.projects = payload.projects || [];
+        renderProjectOptions();
+
+        if (!state.projects.length) {
+          state.activeProjectId = '';
+          state.activeProjectRole = '';
+          resetSessionState();
+          render();
+          if (showFeedback) showToast('Проектов пока нет. Создай новый проект.');
+          return;
+        }
+
+        const sameProject = state.projects.find((p) => p.id === state.activeProjectId);
+        const nextProjectId = sameProject ? sameProject.id : state.projects[0].id;
+        await selectProject(nextProjectId, false);
+        if (showFeedback) showToast('Список проектов обновлён.');
+      } catch (error) {
+        if (showFeedback) showToast(error.message || 'Не удалось загрузить проекты.');
+      }
+    }
+
+    function renderProjectOptions() {
+      if (!state.projects.length) {
+        els.projectSelect.innerHTML = '<option value="">Нет проектов</option>';
+        els.projectSelect.value = '';
+        els.projectRoleLabel.textContent = 'Проект не выбран.';
+        return;
+      }
+
+      els.projectSelect.innerHTML = state.projects
+        .map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`)
+        .join('');
+      els.projectSelect.value = state.activeProjectId || state.projects[0].id;
+      const active = state.projects.find((p) => p.id === els.projectSelect.value);
+      if (active) {
+        els.projectRoleLabel.textContent = `Роль: ${active.role.toUpperCase()} | Обновлён: ${new Date(active.updatedAt).toLocaleString('ru-RU')}`;
+      }
+    }
+
+    async function createProject() {
+      const name = els.newProjectName.value.trim();
+      if (name.length < 3) {
+        showToast('Название проекта должно быть не короче 3 символов.');
+        return;
+      }
+      try {
+        const payload = await apiFetch('/projects', {
+          method: 'POST',
+          body: JSON.stringify({ name })
+        });
+        els.newProjectName.value = '';
+        await loadProjects(false);
+        await selectProject(payload.project.id, false);
+        showToast('Проект создан.');
+      } catch (error) {
+        showToast(error.message || 'Не удалось создать проект.');
+      }
+    }
+
+    async function inviteToProject() {
+      if (!state.activeProjectId) {
+        showToast('Сначала выбери проект.');
+        return;
+      }
+      if (state.activeProjectRole !== 'owner') {
+        showToast('Только владелец может выдавать доступ.');
+        return;
+      }
+      const email = els.inviteEmail.value.trim().toLowerCase();
+      const role = els.inviteRole.value;
+      if (!email.includes('@')) {
+        showToast('Введи корректный email.');
+        return;
+      }
+      try {
+        await apiFetch(`/projects/${state.activeProjectId}/members`, {
+          method: 'POST',
+          body: JSON.stringify({ email, role })
+        });
+        els.inviteEmail.value = '';
+        await loadProjects(false);
+        showToast(`Доступ выдан: ${role}.`);
+      } catch (error) {
+        showToast(error.message || 'Не удалось выдать доступ.');
+      }
+    }
+
+    async function selectProject(projectId, showFeedback) {
+      if (!projectId) return;
+      const selected = state.projects.find((p) => p.id === projectId);
+      if (!selected) return;
+      state.activeProjectId = selected.id;
+      state.activeProjectRole = selected.role;
+      renderProjectOptions();
+      await loadProjectSession(showFeedback);
+      applyAccessMode();
+    }
+
+    async function loadProjectSession(showFeedback) {
+      if (!state.activeProjectId) return;
+      try {
+        const payload = await apiFetch(`/projects/${state.activeProjectId}/session`);
+        if (payload.session) {
+          applySessionPayload(payload.session);
+        } else {
+          loadFromLocalStorage(true);
+        }
+        render();
+        if (showFeedback) showToast('Прогресс проекта загружен.');
+      } catch (error) {
+        if (showFeedback) showToast(error.message || 'Не удалось загрузить прогресс.');
+      }
+    }
+
+    async function saveProjectSession(manual) {
+      if (!state.activeProjectId || !canEditProject()) return;
+      try {
+        await apiFetch(`/projects/${state.activeProjectId}/session`, {
+          method: 'PUT',
+          body: JSON.stringify({ session: buildSessionPayload() })
+        });
+        if (manual) showToast('Прогресс сохранён в проект.');
+      } catch (error) {
+        if (manual) showToast(error.message || 'Не удалось сохранить прогресс.');
+      }
+    }
+
+    function queueServerSave() {
+      if (!canEditProject()) return;
+      clearTimeout(state.saveDebounceTimer);
+      state.saveDebounceTimer = setTimeout(() => {
+        void saveProjectSession(false);
+      }, 500);
+    }
+
+    function canEditProject() {
+      return state.activeProjectRole === 'owner' || state.activeProjectRole === 'editor';
+    }
+
+    function applySessionPayload(payload) {
+      resetSessionState();
+      if (!payload || typeof payload !== 'object') return;
+      state.testStates = payload.testStates || {};
+      state.testNotes = payload.testNotes || {};
+      state.testScreenshots = payload.testScreenshots || {};
+      state.sectionCollapsed = payload.sectionCollapsed || {};
+      state.projectName = payload.projectName || '';
+      state.cameraModel = payload.cameraModel || '';
+      state.firmwareVersion = payload.firmwareVersion || '';
+      state.testerName = payload.testerName || '';
+      state.testDate = payload.testDate || state.testDate;
+      state.savedAt = payload.savedAt || '';
+    }
+
+    function buildSessionPayload() {
+      return {
+        testStates: state.testStates,
+        testNotes: state.testNotes,
+        testScreenshots: state.testScreenshots,
+        sectionCollapsed: state.sectionCollapsed,
+        projectName: state.projectName,
+        cameraModel: state.cameraModel,
+        firmwareVersion: state.firmwareVersion,
+        testerName: state.testerName,
+        testDate: state.testDate,
+        savedAt: new Date().toISOString()
+      };
+    }
+
+    function applyAccessMode() {
+      const editable = canEditProject();
+      [els.projectName, els.cameraModel, els.firmwareVersion, els.testerName, els.testDate, els.saveBtn, els.resetBtn].forEach((el) => {
+        el.disabled = !editable;
+      });
+      els.inviteEmail.disabled = state.activeProjectRole !== 'owner';
+      els.inviteRole.disabled = state.activeProjectRole !== 'owner';
+      els.inviteBtn.disabled = state.activeProjectRole !== 'owner';
     }
 
     function loadAuthFromStorage() {
@@ -1199,6 +1471,10 @@
 
     function logout() {
       state.auth = { token: '', user: null };
+      state.projects = [];
+      state.activeProjectId = '';
+      state.activeProjectRole = '';
+      clearTimeout(state.saveDebounceTimer);
       clearAuthStorage();
       resetSessionState();
       els.authPassword.value = '';
@@ -1224,8 +1500,10 @@
     function render() {
       fillHeaderInputs();
       updateUserBadge();
+      renderProjectOptions();
       renderTree();
       updateStats();
+      applyAccessMode();
     }
 
     function fillHeaderInputs() {
@@ -1288,6 +1566,7 @@
           data-status-btn="${test.id}:${type}"
           title="${title}"
           aria-label="${title}"
+          ${canEditProject() ? '' : 'disabled'}
         >${symbol}</button>
       `;
 
@@ -1310,13 +1589,14 @@
               <textarea
                 data-note-input="${test.id}"
                 placeholder="Добавьте комментарии, результаты, найденные проблемы..."
+                ${canEditProject() ? '' : 'readonly'}
               >${escapeHtml(note)}</textarea>
             </div>
 
             <div class="shots">
               <div class="uploader" data-drop-zone="${test.id}">
                 <span class="upload-text">Перетащите JPG/PNG/GIF сюда или загрузите вручную</span>
-                <button class="btn" data-upload-btn="${test.id}" type="button" title="Загрузить изображения">📤 Загрузить изображения</button>
+                <button class="btn" data-upload-btn="${test.id}" type="button" title="Загрузить изображения" ${canEditProject() ? '' : 'disabled'}>📤 Загрузить изображения</button>
                 <input class="hidden" data-upload-input="${test.id}" type="file" accept="image/png,image/jpeg,image/gif" multiple />
               </div>
               <div class="screens">${renderScreenshots(test.id, screenshots)}</div>
@@ -1335,7 +1615,7 @@
         .map((src, idx) => `
           <div class="shot">
             <img src="${src}" alt="Скриншот ${idx + 1}" data-open-image="${testId}:${idx}" />
-            <button class="shot-delete" type="button" data-delete-image="${testId}:${idx}" title="Удалить изображение">×</button>
+            <button class="shot-delete" type="button" data-delete-image="${testId}:${idx}" title="Удалить изображение" ${canEditProject() ? '' : 'disabled'}>×</button>
           </div>
         `)
         .join('');
@@ -1352,6 +1632,10 @@
       els.testTree.querySelectorAll('[data-note-input]').forEach((textarea) => {
         autoResize(textarea);
         textarea.addEventListener('input', (e) => {
+          if (!canEditProject()) {
+            e.target.value = state.testNotes[e.target.getAttribute('data-note-input')] || '';
+            return;
+          }
           const testId = e.target.getAttribute('data-note-input');
           state.testNotes[testId] = e.target.value;
           autoResize(e.target);
@@ -1385,6 +1669,7 @@
         zone.addEventListener('drop', async (e) => {
           e.preventDefault();
           zone.classList.remove('drag');
+          if (!canEditProject()) return;
           const testId = zone.getAttribute('data-drop-zone');
           await addScreenshots(testId, Array.from(e.dataTransfer?.files || []));
         });
@@ -1401,6 +1686,7 @@
 
       els.testTree.querySelectorAll('[data-delete-image]').forEach((btn) => {
         btn.addEventListener('click', () => {
+          if (!canEditProject()) return;
           const [testId, idxRaw] = btn.getAttribute('data-delete-image').split(':');
           const idx = Number(idxRaw);
           state.testScreenshots[testId].splice(idx, 1);
@@ -1413,6 +1699,10 @@
     }
 
     function setStatus(testId, nextStatus) {
+      if (!canEditProject()) {
+        showToast('У вас режим просмотра проекта.');
+        return;
+      }
       const current = getStatus(testId);
       state.testStates[testId] = current === nextStatus ? 'pending' : nextStatus;
       saveToLocalStorage();
@@ -1425,6 +1715,10 @@
     }
 
     async function addScreenshots(testId, files) {
+      if (!canEditProject()) {
+        showToast('У вас режим просмотра проекта.');
+        return;
+      }
       if (!files.length) return;
       const valid = files.filter((f) => /^image\/(png|jpeg|gif)$/.test(f.type));
       if (!valid.length) {
@@ -1574,20 +1868,10 @@
       const storageKey = getStorageKey();
       if (!storageKey) return;
       try {
-        const payload = {
-          testStates: state.testStates,
-          testNotes: state.testNotes,
-          testScreenshots: state.testScreenshots,
-          sectionCollapsed: state.sectionCollapsed,
-          projectName: state.projectName,
-          cameraModel: state.cameraModel,
-          firmwareVersion: state.firmwareVersion,
-          testerName: state.testerName,
-          testDate: state.testDate,
-          savedAt: new Date().toISOString()
-        };
+        const payload = buildSessionPayload();
         state.savedAt = payload.savedAt;
         localStorage.setItem(storageKey, JSON.stringify(payload));
+        queueServerSave();
       } catch {
         showToast('Не удалось сохранить. Возможно, лимит localStorage превышен.');
       }
@@ -1595,7 +1879,7 @@
 
     function getStorageKey() {
       const userId = state.auth.user?.id;
-      return userId ? `${STORAGE_KEY}:${userId}` : '';
+      return userId && state.activeProjectId ? `${STORAGE_KEY}:${userId}:${state.activeProjectId}` : '';
     }
 
     function matchesSearch(test, query) {
